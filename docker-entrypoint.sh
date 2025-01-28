@@ -12,9 +12,13 @@ handle_term() {
 # Set up signal handlers
 trap handle_term SIGTERM SIGINT
 
+# Verify package can be imported
+echo "Verifying package installation..."
+python3 -c "import simpleguardhome" || exit 1
+
 # Start the application
 echo "Starting SimpleGuardHome server..."
-cd /app && PYTHONPATH=/app/src python3 -m simpleguardhome.main &
+exec python3 -m simpleguardhome.main
 
 # Store child PID
 child=$!

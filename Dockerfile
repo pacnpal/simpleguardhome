@@ -19,14 +19,11 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copy the source code
 COPY . .
 
-# Set Python path to include src directory
-ENV PYTHONPATH=/app/src
-
-# Install the package in editable mode
-RUN pip install -e .
-
-# Verify package installation
-RUN pip show simpleguardhome
+# Clean any previous installations and install the package
+RUN pip uninstall -y simpleguardhome || true && \
+    pip install -e . && \
+    pip show simpleguardhome && \
+    python3 -c "import simpleguardhome; print('Package found at:', simpleguardhome.__file__)"
 
 # Copy and set up entrypoint script
 COPY docker-entrypoint.sh /usr/local/bin/
