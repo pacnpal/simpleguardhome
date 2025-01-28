@@ -14,7 +14,7 @@ trap handle_term SIGTERM SIGINT
 
 # Start the application
 echo "Starting SimpleGuardHome server..."
-python -m simpleguardhome.main &
+PYTHONPATH=/app/src python -m simpleguardhome.main &
 
 # Store child PID
 child=$!
