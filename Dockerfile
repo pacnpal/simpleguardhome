@@ -22,6 +22,10 @@ COPY . .
 # Install the package in editable mode
 RUN pip install -e .
 
+# Copy and set up entrypoint script
+COPY docker-entrypoint.sh /usr/local/bin/
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
+
 # Create rules backup directory with proper permissions
 RUN mkdir -p /app/rules_backup && \
     chmod 777 /app/rules_backup
@@ -36,5 +40,5 @@ EXPOSE 8000
 # Volume for persisting rules backups
 VOLUME ["/app/rules_backup"]
 
-# Command to run the application
-CMD ["python", "-m", "simpleguardhome.main"]
+# Set entrypoint
+ENTRYPOINT ["docker-entrypoint.sh"]
