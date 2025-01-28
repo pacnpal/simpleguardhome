@@ -10,7 +10,6 @@ updates:
       - "dependencies"
     commit-message:
       prefix: "fix(deps)"
-    auto-merge: true
     allow:
       - dependency-type: "all"
     ignore:
