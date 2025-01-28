@@ -20,7 +20,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
 
 # Set Python path to include src directory
-ENV PYTHONPATH="/app/src:${PYTHONPATH}"
+ENV PYTHONPATH=/app/src
 
 # Install the package in editable mode
 RUN pip install -e .
