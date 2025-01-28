@@ -7,7 +7,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         async function checkDomain(event) {
-            event.preventDefault(); // Important: prevent default form submission
+            event.preventDefault();
             const domain = document.getElementById('domain').value;
             const resultDiv = document.getElementById('result');
             const unblockDiv = document.getElementById('unblock-action');
@@ -28,13 +28,14 @@
                 const data = await response.json();
                 
                 if (response.ok) {
-                    if (data.reason.startsWith('Filtered')) {
+                    const isBlocked = data.reason.startsWith('Filtered');
+                    if (isBlocked) {
                         resultDiv.innerHTML = `
                             <div class="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-4">
                                 <p class="font-bold">Domain is blocked</p>
-                                <p class="text-sm"><strong>${domain}</strong> is blocked by rule:</p>
-                                <p class="text-sm font-mono bg-red-50 p-2 mt-1 rounded">${data.rule || 'No rule specified'}</p>
-                                ${data.filter_id ? `<p class="text-sm mt-2">Filter ID: ${data.filter_id}</p>` : ''}
+                                <p class="text-sm"><strong>${domain}</strong> is blocked</p>
+                                <p class="text-sm">Reason: ${data.reason}</p>
+                                ${data.rules?.length ? `<p class="text-sm font-mono bg-red-50 p-2 mt-1 rounded">Rule: ${data.rules[0].text}</p>` : ''}
                                 ${data.service_name ? `<p class="text-sm mt-2">Service: ${data.service_name}</p>` : ''}
                             </div>`;
                         unblockDiv.innerHTML = `
@@ -52,7 +53,6 @@
                         unblockDiv.innerHTML = '';
                     }
                 } else {
-                    // Show error message
                     resultDiv.innerHTML = `
                         <div class="bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 p-4">
                             <p class="font-bold">Error checking domain</p>
@@ -68,7 +68,6 @@
                     </div>`;
                 unblockDiv.innerHTML = '';
             } finally {
-                // Reset button state
                 submitBtn.disabled = false;
                 submitBtn.innerHTML = 'Check Domain';
             }
@@ -80,17 +79,18 @@
             const unblockBtn = unblockDiv.querySelector('button');
             
             try {
-                // Show loading state
                 unblockBtn.disabled = true;
                 unblockBtn.innerHTML = '<span class="inline-flex items-center">Unblocking... <svg class="animate-spin ml-2 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg></span>';
                 
-                const response = await fetch('/control/filtering/whitelist/add', {
+                const response = await fetch('/control/filtering/set_rules', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
                         'Accept': 'application/json'
                     },
-                    body: JSON.stringify({ name: domain })
+                    body: JSON.stringify({
+                        rules: [`@@||${domain}^`]
+                    })
                 });
                 
                 if (response.ok) {
@@ -123,7 +123,6 @@
         <h1 class="text-3xl font-bold text-center mb-8 text-gray-800">SimpleGuardHome</h1>
         
         <div class="bg-white rounded-lg shadow-md p-6">
-            <!-- Remove form action to prevent default submission -->
             <form onsubmit="checkDomain(event)" class="mb-6">
                 <div class="mb-4">
                     <label for="domain" class="block text-gray-700 text-sm font-bold mb-2">

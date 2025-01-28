@@ -13,23 +13,24 @@ from .adguard import (
     AdGuardError,
     AdGuardConnectionError,
     AdGuardAPIError,
-    DomainCheckResult,
-    FilterStatus
+    FilterStatus,
+    FilterCheckHostResponse,
+    SetRulesRequest
 )
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Initialize FastAPI app
+# Initialize API with proper OpenAPI info
 app = FastAPI(
     title="SimpleGuardHome",
     description="AdGuard Home REST API interface",
     version="1.0.0",
-    openapi_url="/api/openapi.json",
     docs_url="/api/docs",
-    redoc_url="/api/redoc"
+    redoc_url="/api/redoc",
+    openapi_url="/api/openapi.json"
 )
 
 # Add CORS middleware with security headers
@@ -46,12 +47,10 @@ app.add_middleware(
 templates_path = Path(__file__).parent / "templates"
 templates = Jinja2Templates(directory=str(templates_path))
 
-# Request/Response Models
-class DomainRequest(BaseModel):
-    name: str
-
+# Response models matching AdGuard spec
 class ErrorResponse(BaseModel):
-    message: str
+    """Error response model according to AdGuard spec."""
+    message: str = Field(..., description="The error message")
 
 @app.get("/", response_class=HTMLResponse)
 async def home(request: Request):
@@ -63,7 +62,7 @@ async def home(request: Request):
 
 @app.get(
     "/control/filtering/check_host",
-    response_model=DomainCheckResult,
+    response_model=FilterCheckHostResponse,
     responses={
         200: {"description": "OK"},
         400: {"description": "Bad Request", "model": ErrorResponse},
@@ -71,8 +70,8 @@ async def home(request: Request):
     },
     tags=["filtering"]
 )
-async def check_domain(name: str) -> Dict:
-    """Check if a domain is blocked by AdGuard Home using AdGuard spec."""
+async def check_domain(name: str) -> FilterCheckHostResponse:
+    """Check if a domain is blocked by AdGuard Home according to spec."""
     if not name:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -90,7 +89,7 @@ async def check_domain(name: str) -> Dict:
         raise
 
 @app.post(
-    "/control/filtering/whitelist/add",
+    "/control/filtering/set_rules",
     response_model=Dict,
     responses={
         200: {"description": "OK"},
@@ -99,27 +98,27 @@ async def check_domain(name: str) -> Dict:
     },
     tags=["filtering"]
 )
-async def add_to_whitelist(request: DomainRequest) -> Dict:
-    """Add a domain to the allowed list using AdGuard spec."""
-    if not request.name:
+async def add_to_whitelist(request: SetRulesRequest) -> Dict:
+    """Add rules using set_rules endpoint according to AdGuard spec."""
+    if not request.rules:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Domain name is required"
+            detail="Rules are required"
         )
     
-    logger.info(f"Adding domain to whitelist: {request.name}")
+    logger.info(f"Adding rules: {request.rules}")
     try:
         async with adguard.AdGuardClient() as client:
-            success = await client.add_allowed_domain(request.name)
+            success = await client.add_allowed_domain(request.rules[0].strip("@@||^"))
             if success:
-                return {"message": f"Successfully whitelisted {request.name}"}
+                return {"message": "Rules added successfully"}
             else:
                 raise HTTPException(
                     status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                    detail="Failed to whitelist domain"
+                    detail="Failed to add rules"
                 )
     except Exception as e:
-        logger.error(f"Error whitelisting domain {request.name}: {str(e)}")
+        logger.error(f"Error adding rules: {str(e)}")
         raise
 
 @app.get(
@@ -132,7 +131,7 @@ async def add_to_whitelist(request: DomainRequest) -> Dict:
     tags=["filtering"]
 )
 async def get_filtering_status() -> FilterStatus:
-    """Get the current filtering status using AdGuard spec."""
+    """Get filtering status according to AdGuard spec."""
     try:
         async with adguard.AdGuardClient() as client:
             return await client.get_filter_status()
