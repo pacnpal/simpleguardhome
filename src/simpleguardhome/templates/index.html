@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SimpleGuardHome</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        async function checkDomain(event) {
+            event.preventDefault();
+            const domain = document.getElementById('domain').value;
+            const resultDiv = document.getElementById('result');
+            const unblockDiv = document.getElementById('unblock-action');
+            const submitBtn = document.getElementById('submit-btn');
+            
+            try {
+                // Show loading state
+                submitBtn.disabled = true;
+                submitBtn.innerHTML = '<span class="inline-flex items-center">Checking... <svg class="animate-spin ml-2 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg></span>';
+                
+                const response = await fetch('/check-domain', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                    },
+                    body: `domain=${encodeURIComponent(domain)}`
+                });
+                const data = await response.json();
+                
+                if (data.success) {
+                    if (data.blocked) {
+                        resultDiv.innerHTML = `
+                            <div class="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-4">
+                                <p class="font-bold">Domain is blocked</p>
+                                <p class="text-sm"><strong>${domain}</strong> is blocked by rule:</p>
+                                <p class="text-sm font-mono bg-red-50 p-2 mt-1 rounded">${data.rule || 'Unknown rule'}</p>
+                                ${data.filter_list ? `<p class="text-sm mt-2">Filter List: ${data.filter_list}</p>` : ''}
+                            </div>`;
+                        unblockDiv.innerHTML = `
+                            <button onclick="unblockDomain('${domain}')" 
+                                    class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded transition-colors duration-200">
+                                Unblock Domain
+                            </button>`;
+                    } else {
+                        resultDiv.innerHTML = `
+                            <div class="bg-green-100 border-l-4 border-green-500 text-green-700 p-4">
+                                <p class="font-bold">Domain is not blocked</p>
+                                <p class="text-sm"><strong>${domain}</strong> is allowed</p>
+                            </div>`;
+                        unblockDiv.innerHTML = '';
+                    }
+                } else {
+                    // Show error message
+                    resultDiv.innerHTML = `
+                        <div class="bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 p-4">
+                            <p class="font-bold">${data.error}</p>
+                            <p class="text-sm">${data.detail}</p>
+                        </div>`;
+                    unblockDiv.innerHTML = '';
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `
+                    <div class="bg-red-100 border-l-4 border-red-500 text-red-700 p-4">
+                        <p class="font-bold">Error checking domain</p>
+                        <p class="text-sm">${error.message}</p>
+                    </div>`;
+                unblockDiv.innerHTML = '';
+            } finally {
+                // Reset button state
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = 'Check Domain';
+            }
+        }
+
+        async function unblockDomain(domain) {
+            const resultDiv = document.getElementById('result');
+            const unblockDiv = document.getElementById('unblock-action');
+            const unblockBtn = unblockDiv.querySelector('button');
+            
+            try {
+                // Show loading state
+                unblockBtn.disabled = true;
+                unblockBtn.innerHTML = '<span class="inline-flex items-center">Unblocking... <svg class="animate-spin ml-2 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg></span>';
+                
+                const response = await fetch('/unblock-domain', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                    },
+                    body: `domain=${encodeURIComponent(domain)}`
+                });
+                const data = await response.json();
+                
+                if (data.success) {
+                    resultDiv.innerHTML = `
+                        <div class="bg-green-100 border-l-4 border-green-500 text-green-700 p-4">
+                            <p class="font-bold">Success!</p>
+                            <p class="text-sm">${data.message}</p>
+                        </div>`;
+                    unblockDiv.innerHTML = '';
+                } else {
+                    resultDiv.innerHTML = `
+                        <div class="bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 p-4">
+                            <p class="font-bold">${data.error}</p>
+                            <p class="text-sm">${data.detail}</p>
+                        </div>`;
+                }
+            } catch (error) {
+                resultDiv.innerHTML = `
+                    <div class="bg-red-100 border-l-4 border-red-500 text-red-700 p-4">
+                        <p class="font-bold">Error unblocking domain</p>
+                        <p class="text-sm">${error.message}</p>
+                    </div>`;
+            }
+        }
+    </script>
+</head>
+<body class="bg-gray-100 min-h-screen">
+    <div class="container mx-auto px-4 py-8 max-w-2xl">
+        <h1 class="text-3xl font-bold text-center mb-8 text-gray-800">SimpleGuardHome</h1>
+        
+        <div class="bg-white rounded-lg shadow-md p-6">
+            <form onsubmit="checkDomain(event)" class="mb-6">
+                <div class="mb-4">
+                    <label for="domain" class="block text-gray-700 text-sm font-bold mb-2">
+                        Enter Domain to Check
+                    </label>
+                    <input type="text" id="domain" name="domain" required
+                           class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
+                           placeholder="example.com">
+                </div>
+                <button id="submit-btn" type="submit" 
+                        class="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded w-full transition-colors duration-200">
+                    Check Domain
+                </button>
+            </form>
+            
+            <div id="result"></div>
+            <div id="unblock-action" class="mt-4 text-center"></div>
+        </div>
+
+        <div class="mt-4 text-center text-gray-600 text-sm">
+            Make sure your AdGuard Home instance is running and properly configured in the .env file.
+        </div>
+    </div>
+</body>
+</html>
