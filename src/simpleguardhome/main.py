@@ -49,7 +49,7 @@ async def health_check() -> Dict:
         logger.error(f"Health check failed: {str(e)}")
         return {
             "status": "error",
-            "error": str(e)
+            "error": "An internal error has occurred. Please try again later."
         }
 
 @app.exception_handler(AdGuardError)
