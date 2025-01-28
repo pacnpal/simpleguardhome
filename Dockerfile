@@ -22,12 +22,19 @@ COPY . .
 # Install the package in editable mode
 RUN pip install -e .
 
+# Create rules backup directory with proper permissions
+RUN mkdir -p /app/rules_backup && \
+    chmod 777 /app/rules_backup
+
 # Default environment variables
 ENV ADGUARD_HOST="http://localhost" \
     ADGUARD_PORT=3000
 
 # Expose the application port
 EXPOSE 8000
+
+# Volume for persisting rules backups
+VOLUME ["/app/rules_backup"]
 
 # Command to run the application
 CMD ["python", "-m", "simpleguardhome.main"]
