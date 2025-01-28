@@ -1,4 +1,5 @@
 from typing import Dict, List, Optional
+from pydantic import BaseModel, Field
 import httpx
 import logging
 from .config import settings
@@ -19,13 +20,66 @@ class AdGuardAPIError(AdGuardError):
     """Raised when AdGuard Home API returns an error."""
     pass
 
+# Response models matching AdGuard Home API spec
+class Filter(BaseModel):
+    """Filter subscription info according to AdGuard spec."""
+    enabled: bool
+    id: int = Field(..., description="Filter ID", example=1234)
+    name: str = Field(..., example="AdGuard Simplified Domain Names filter")
+    rules_count: int = Field(..., description="Number of rules in filter", example=5912)
+    url: str = Field(..., example="https://adguardteam.github.io/AdGuardSDNSFilter/Filters/filter.txt")
+    last_updated: Optional[str] = Field(None, example="2018-10-30T12:18:57+03:00")
+
+class FilterStatus(BaseModel):
+    """Filtering settings according to AdGuard spec."""
+    enabled: bool = Field(..., description="Whether filtering is enabled")
+    interval: Optional[int] = Field(None, description="Update interval in hours")
+    filters: List[Filter] = Field(default_factory=list)
+    whitelist_filters: List[Filter] = Field(default_factory=list)
+    user_rules: List[str] = Field(default_factory=list)
+
+class DnsAnswer(BaseModel):
+    """DNS answer section according to AdGuard spec."""
+    ttl: int = Field(..., description="Time to live")
+    type: str = Field(..., description="Record type", example="A")
+    value: str = Field(..., description="Record value", example="217.69.139.201")
+
+class DomainCheckResult(BaseModel):
+    """Response model for check_host endpoint according to AdGuard spec."""
+    reason: str = Field(
+        ...,
+        description="Request filtering status",
+        enum=[
+            "NotFilteredNotFound",
+            "NotFilteredWhiteList",
+            "NotFilteredError",
+            "FilteredBlackList",
+            "FilteredSafeBrowsing",
+            "FilteredParental",
+            "FilteredInvalid",
+            "FilteredSafeSearch",
+            "FilteredBlockedService",
+            "Rewrite",
+            "RewriteEtcHosts",
+            "RewriteRule"
+        ]
+    )
+    filter_id: Optional[int] = Field(None, description="ID of the filter list containing the rule")
+    rule: Optional[str] = Field(None, description="Applied filtering rule")
+    service_name: Optional[str] = Field(None, description="Blocked service name if applicable")
+    cname: Optional[str] = Field(None, description="CNAME value if rewritten")
+    ip_addrs: Optional[List[str]] = Field(None, description="IP addresses if rewritten")
+
 class AdGuardClient:
-    """Client for interacting with AdGuard Home API."""
+    """Client for interacting with AdGuard Home API according to OpenAPI spec."""
     
     def __init__(self):
         """Initialize the AdGuard Home API client."""
-        self.base_url = settings.adguard_base_url
-        self.client = httpx.AsyncClient(timeout=10.0)  # 10 second timeout
+        self.base_url = f"{settings.adguard_base_url}/control"
+        self.client = httpx.AsyncClient(
+            timeout=10.0,
+            limits=httpx.Limits(max_keepalive_connections=5, max_connections=10)
+        )
         self._session_cookie = None
         self._auth = None
         if settings.ADGUARD_USERNAME and settings.ADGUARD_PASSWORD:
@@ -49,14 +103,13 @@ class AdGuardClient:
             logger.warning("No credentials configured, skipping authentication")
             return False
 
-        url = f"{self.base_url}/control/login"
+        url = f"{self.base_url}/login"
         
         try:
             logger.info("Authenticating with AdGuard Home")
             response = await self.client.post(url, json=self._auth)
             response.raise_for_status()
             
-            # Extract and store session cookie
             cookies = response.cookies
             if 'agh_session' in cookies:
                 self._session_cookie = cookies['agh_session']
@@ -81,14 +134,14 @@ class AdGuardClient:
         if not self._session_cookie:
             await self.login()
     
-    async def check_domain(self, domain: str) -> Dict:
+    async def check_domain(self, domain: str) -> DomainCheckResult:
         """Check if a domain is blocked by AdGuard Home.
         
         Args:
             domain: The domain to check
             
         Returns:
-            Dict containing the filtering status
+            DomainCheckResult according to AdGuard spec
             
         Raises:
             AdGuardConnectionError: If connection to AdGuard Home fails
@@ -106,7 +159,6 @@ class AdGuardClient:
             logger.info(f"Checking domain: {domain}")
             response = await self.client.get(url, params=params, headers=headers)
             
-            # Handle unauthorized response by attempting reauth
             if response.status_code == 401:
                 logger.info("Session expired, attempting reauth")
                 await self.login()
@@ -117,7 +169,7 @@ class AdGuardClient:
             response.raise_for_status()
             result = response.json()
             logger.info(f"Domain check result for {domain}: {result}")
-            return result
+            return DomainCheckResult(**result)
             
         except httpx.ConnectError as e:
             logger.error(f"Connection error while checking domain {domain}: {str(e)}")
@@ -129,11 +181,11 @@ class AdGuardClient:
             logger.error(f"Unexpected error while checking domain {domain}: {str(e)}")
             raise AdGuardError(f"Unexpected error: {str(e)}")
     
-    async def get_filter_status(self) -> Dict:
+    async def get_filter_status(self) -> FilterStatus:
         """Get the current filtering status.
         
         Returns:
-            Dict containing the filtering status
+            FilterStatus according to AdGuard spec
             
         Raises:
             AdGuardConnectionError: If connection to AdGuard Home fails
@@ -150,7 +202,6 @@ class AdGuardClient:
             logger.info("Getting filter status")
             response = await self.client.get(url, headers=headers)
             
-            # Handle unauthorized response by attempting reauth
             if response.status_code == 401:
                 logger.info("Session expired, attempting reauth")
                 await self.login()
@@ -161,7 +212,7 @@ class AdGuardClient:
             response.raise_for_status()
             result = response.json()
             logger.info("Successfully retrieved filter status")
-            return result
+            return FilterStatus(**result)
             
         except httpx.ConnectError as e:
             logger.error(f"Connection error while getting filter status: {str(e)}")
@@ -174,7 +225,7 @@ class AdGuardClient:
             raise AdGuardError(f"Unexpected error: {str(e)}")
     
     async def add_allowed_domain(self, domain: str) -> bool:
-        """Add a domain to the allowed list.
+        """Add a domain to the allowed list according to AdGuard spec.
         
         Args:
             domain: The domain to allow
@@ -198,7 +249,6 @@ class AdGuardClient:
             logger.info(f"Adding domain to whitelist: {domain}")
             response = await self.client.post(url, json=data, headers=headers)
             
-            # Handle unauthorized response by attempting reauth
             if response.status_code == 401:
                 logger.info("Session expired, attempting reauth")
                 await self.login()

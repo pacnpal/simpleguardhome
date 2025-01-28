@@ -1,6 +1,6 @@
 # SimpleGuardHome
 
-A modern web application for checking and managing domain filtering in AdGuard Home. Built with FastAPI and modern JavaScript.
+A modern web application for checking and managing domain filtering in AdGuard Home. Built with FastAPI and modern JavaScript, following the official AdGuard Home OpenAPI specification.
 
 ## Features
 
@@ -11,6 +11,8 @@ A modern web application for checking and managing domain filtering in AdGuard H
 - 📝 Comprehensive logging
 - 🏥 Health monitoring endpoint
 - ⚙️ Environment-based configuration
+- 📚 Full OpenAPI/Swagger documentation
+- ✅ Implements official AdGuard Home API spec
 
 ## Requirements
 
@@ -61,52 +63,79 @@ python -m uvicorn src.simpleguardhome.main:app --reload
 
 The application will be available at `http://localhost:8000`
 
-## API Endpoints
+## API Documentation
 
-### Web Interface
-- `GET /` - Main web interface for domain checking and unblocking
+The API documentation is available at:
+- Swagger UI: `http://localhost:8000/api/docs`
+- ReDoc: `http://localhost:8000/api/redoc`
+- OpenAPI Schema: `http://localhost:8000/api/openapi.json`
 
 ### API Endpoints
-- `POST /check-domain` - Check if a domain is blocked
-  - Parameters: `domain` (form data)
-  - Returns: Blocking status and rule information
 
-- `POST /unblock-domain` - Add a domain to the allowed list
-  - Parameters: `domain` (form data)
-  - Returns: Success/failure status
+All endpoints follow the official AdGuard Home API specification:
 
-- `GET /health` - Check application and AdGuard Home connection status
-  - Returns: Health status of the application and AdGuard Home connection
+#### Web Interface
+- `GET /` - Main web interface for domain checking and unblocking
 
-## Troubleshooting
+#### Filtering Endpoints
+- `POST /control/filtering/check_host` - Check if a domain is blocked
+  - Parameters: `name` (query parameter)
+  - Returns: Detailed filtering status and rules
 
-### Common Issues
+- `POST /control/filtering/whitelist/add` - Add a domain to the allowed list
+  - Parameters: `name` (JSON body)
+  - Returns: Success status
 
-1. **Connection Failed**
-   - Ensure AdGuard Home is running
-   - Verify the host and port in .env are correct
-   - Check if AdGuard Home's API is accessible
+- `GET /control/filtering/status` - Get current filtering configuration
+  - Returns: Complete filtering status including rules and filters
 
-2. **Authentication Failed**
-   - Verify username and password in .env
-   - Ensure AdGuard Home authentication is enabled/disabled as expected
+#### System Status
+- `GET /control/status` - Check application and AdGuard Home connection status
+  - Returns: Health status with filtering state
 
-3. **Domain Check Failed**
-   - Check AdGuard Home logs for filtering issues
-   - Verify domain format is correct
-   - Ensure AdGuard Home filtering is enabled
+## Response Models
 
-### Checking System Status
+The application uses Pydantic models that match the AdGuard Home API specification:
 
-1. Use the health check endpoint:
-```bash
-curl http://localhost:8000/health
+### FilterStatus
+```python
+{
+    "enabled": bool,
+    "filters": [
+        {
+            "enabled": bool,
+            "id": int,
+            "name": str,
+            "rules_count": int,
+            "url": str
+        }
+    ],
+    "user_rules": List[str],
+    "whitelist_filters": List[Filter]
+}
 ```
 
-2. Check application logs:
-- The application uses structured logging
-- Look for ERROR level messages for issues
-- Connection problems are logged with detailed error information
+### DomainCheckResult
+```python
+{
+    "reason": str,  # Filtering status (e.g., "FilteredBlackList")
+    "rule": str,    # Applied filtering rule
+    "filter_id": int,  # ID of the filter containing the rule
+    "service_name": str,  # For blocked services
+    "cname": str,   # For CNAME rewrites
+    "ip_addrs": List[str]  # For A/AAAA rewrites
+}
+```
+
+## Error Handling
+
+The application implements proper error handling according to the AdGuard Home API spec:
+
+- 400 Bad Request - Invalid input
+- 401 Unauthorized - Authentication required
+- 403 Forbidden - Authentication failed
+- 502 Bad Gateway - AdGuard Home API error
+- 503 Service Unavailable - AdGuard Home unreachable
 
 ## Development
 
@@ -134,6 +163,7 @@ simpleguardhome/
    - Add routes in `main.py`
    - Extend AdGuard client in `adguard.py`
    - Update configuration in `config.py`
+   - Follow AdGuard Home OpenAPI spec
 
 2. Frontend Changes:
    - Modify `templates/index.html`
@@ -145,6 +175,9 @@ simpleguardhome/
 - API credentials are handled via environment variables
 - Connections use proper error handling and timeouts
 - Input validation is performed on all endpoints
+- CORS protection with proper headers
+- Rate limiting on sensitive endpoints
+- Session-based authentication with AdGuard Home
 - Sensitive information is not exposed in responses
 
 ## License
