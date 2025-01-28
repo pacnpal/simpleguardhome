@@ -7,7 +7,7 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
         async function checkDomain(event) {
-            event.preventDefault();
+            event.preventDefault(); // Important: prevent default form submission
             const domain = document.getElementById('domain').value;
             const resultDiv = document.getElementById('result');
             const unblockDiv = document.getElementById('unblock-action');
@@ -18,23 +18,24 @@
                 submitBtn.disabled = true;
                 submitBtn.innerHTML = '<span class="inline-flex items-center">Checking... <svg class="animate-spin ml-2 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg></span>';
                 
-                const response = await fetch('/check-domain', {
-                    method: 'POST',
+                const response = await fetch(`/control/filtering/check_host?name=${encodeURIComponent(domain)}`, {
+                    method: 'GET',
                     headers: {
-                        'Content-Type': 'application/x-www-form-urlencoded',
-                    },
-                    body: `domain=${encodeURIComponent(domain)}`
+                        'Accept': 'application/json',
+                    }
                 });
+                
                 const data = await response.json();
                 
-                if (data.success) {
-                    if (data.blocked) {
+                if (response.ok) {
+                    if (data.reason.startsWith('Filtered')) {
                         resultDiv.innerHTML = `
                             <div class="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-4">
                                 <p class="font-bold">Domain is blocked</p>
                                 <p class="text-sm"><strong>${domain}</strong> is blocked by rule:</p>
-                                <p class="text-sm font-mono bg-red-50 p-2 mt-1 rounded">${data.rule || 'Unknown rule'}</p>
-                                ${data.filter_list ? `<p class="text-sm mt-2">Filter List: ${data.filter_list}</p>` : ''}
+                                <p class="text-sm font-mono bg-red-50 p-2 mt-1 rounded">${data.rule || 'No rule specified'}</p>
+                                ${data.filter_id ? `<p class="text-sm mt-2">Filter ID: ${data.filter_id}</p>` : ''}
+                                ${data.service_name ? `<p class="text-sm mt-2">Service: ${data.service_name}</p>` : ''}
                             </div>`;
                         unblockDiv.innerHTML = `
                             <button onclick="unblockDomain('${domain}')" 
@@ -46,6 +47,7 @@
                             <div class="bg-green-100 border-l-4 border-green-500 text-green-700 p-4">
                                 <p class="font-bold">Domain is not blocked</p>
                                 <p class="text-sm"><strong>${domain}</strong> is allowed</p>
+                                <p class="text-xs mt-2">Status: ${data.reason}</p>
                             </div>`;
                         unblockDiv.innerHTML = '';
                     }
@@ -53,8 +55,8 @@
                     // Show error message
                     resultDiv.innerHTML = `
                         <div class="bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 p-4">
-                            <p class="font-bold">${data.error}</p>
-                            <p class="text-sm">${data.detail}</p>
+                            <p class="font-bold">Error checking domain</p>
+                            <p class="text-sm">${data.message || 'Unknown error occurred'}</p>
                         </div>`;
                     unblockDiv.innerHTML = '';
                 }
@@ -82,27 +84,28 @@
                 unblockBtn.disabled = true;
                 unblockBtn.innerHTML = '<span class="inline-flex items-center">Unblocking... <svg class="animate-spin ml-2 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg></span>';
                 
-                const response = await fetch('/unblock-domain', {
+                const response = await fetch('/control/filtering/whitelist/add', {
                     method: 'POST',
                     headers: {
-                        'Content-Type': 'application/x-www-form-urlencoded',
+                        'Content-Type': 'application/json',
+                        'Accept': 'application/json'
                     },
-                    body: `domain=${encodeURIComponent(domain)}`
+                    body: JSON.stringify({ name: domain })
                 });
-                const data = await response.json();
                 
-                if (data.success) {
+                if (response.ok) {
                     resultDiv.innerHTML = `
                         <div class="bg-green-100 border-l-4 border-green-500 text-green-700 p-4">
                             <p class="font-bold">Success!</p>
-                            <p class="text-sm">${data.message}</p>
+                            <p class="text-sm">Domain ${domain} has been added to the whitelist</p>
                         </div>`;
                     unblockDiv.innerHTML = '';
                 } else {
+                    const data = await response.json();
                     resultDiv.innerHTML = `
                         <div class="bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 p-4">
-                            <p class="font-bold">${data.error}</p>
-                            <p class="text-sm">${data.detail}</p>
+                            <p class="font-bold">Error unblocking domain</p>
+                            <p class="text-sm">${data.message || 'Unknown error occurred'}</p>
                         </div>`;
                 }
             } catch (error) {
@@ -120,6 +123,7 @@
         <h1 class="text-3xl font-bold text-center mb-8 text-gray-800">SimpleGuardHome</h1>
         
         <div class="bg-white rounded-lg shadow-md p-6">
+            <!-- Remove form action to prevent default submission -->
             <form onsubmit="checkDomain(event)" class="mb-6">
                 <div class="mb-4">
                     <label for="domain" class="block text-gray-700 text-sm font-bold mb-2">

@@ -22,7 +22,7 @@ from pydantic import BaseModel
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-# Initialize rate limiter
+# Initialize FastAPI app
 app = FastAPI(
     title="SimpleGuardHome",
     description="AdGuard Home REST API interface",
@@ -46,29 +46,11 @@ app.add_middleware(
 templates_path = Path(__file__).parent / "templates"
 templates = Jinja2Templates(directory=str(templates_path))
 
-# Response models matching AdGuard spec
-class HealthResponse(BaseModel):
-    """Health check response model."""
-    status: str
-    adguard_connection: str
-    filtering_enabled: bool = False
-    error: str = None
-
-class DomainResponse(BaseModel):
-    """Domain check response model matching AdGuard spec."""
-    success: bool
-    domain: str
-    filtered: bool = False
-    reason: str = None
-    rule: str = None
-    filter_list_id: int = None
-    service_name: str = None
-    cname: str = None
-    ip_addrs: list[str] = None
-    message: str = None
+# Request/Response Models
+class DomainRequest(BaseModel):
+    name: str
 
 class ErrorResponse(BaseModel):
-    """Error response model matching AdGuard spec."""
     message: str
 
 @app.get("/", response_class=HTMLResponse)
@@ -80,43 +62,83 @@ async def home(request: Request):
     )
 
 @app.get(
-    "/control/status",
-    response_model=HealthResponse,
+    "/control/filtering/check_host",
+    response_model=DomainCheckResult,
     responses={
         200: {"description": "OK"},
-        503: {"description": "AdGuard Home service unavailable", "model": ErrorResponse},
-        500: {"description": "Internal server error", "model": ErrorResponse}
+        400: {"description": "Bad Request", "model": ErrorResponse},
+        503: {"description": "AdGuard Home service unavailable", "model": ErrorResponse}
     },
-    tags=["health"]
+    tags=["filtering"]
 )
-async def health_check() -> Dict:
-    """Check the health of the application and AdGuard Home connection."""
+async def check_domain(name: str) -> Dict:
+    """Check if a domain is blocked by AdGuard Home using AdGuard spec."""
+    if not name:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Domain name is required"
+        )
+    
+    logger.info(f"Checking domain: {name}")
     try:
         async with adguard.AdGuardClient() as client:
-            status = await client.get_filter_status()
-            return {
-                "status": "healthy",
-                "adguard_connection": "connected",
-                "filtering_enabled": status.enabled if status else False
-            }
-    except AdGuardConnectionError:
-        return JSONResponse(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            content={
-                "status": "degraded",
-                "adguard_connection": "failed",
-                "error": "Could not connect to AdGuard Home"
-            }
-        )
+            result = await client.check_domain(name)
+            logger.info(f"Domain check result: {result}")
+            return result
     except Exception as e:
-        logger.error(f"Health check failed: {str(e)}")
-        return JSONResponse(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            content={
-                "status": "error",
-                "error": "An internal error has occurred. Please try again later."
-            }
+        logger.error(f"Error checking domain {name}: {str(e)}")
+        raise
+
+@app.post(
+    "/control/filtering/whitelist/add",
+    response_model=Dict,
+    responses={
+        200: {"description": "OK"},
+        400: {"description": "Bad Request", "model": ErrorResponse},
+        503: {"description": "AdGuard Home service unavailable", "model": ErrorResponse}
+    },
+    tags=["filtering"]
+)
+async def add_to_whitelist(request: DomainRequest) -> Dict:
+    """Add a domain to the allowed list using AdGuard spec."""
+    if not request.name:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Domain name is required"
         )
+    
+    logger.info(f"Adding domain to whitelist: {request.name}")
+    try:
+        async with adguard.AdGuardClient() as client:
+            success = await client.add_allowed_domain(request.name)
+            if success:
+                return {"message": f"Successfully whitelisted {request.name}"}
+            else:
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail="Failed to whitelist domain"
+                )
+    except Exception as e:
+        logger.error(f"Error whitelisting domain {request.name}: {str(e)}")
+        raise
+
+@app.get(
+    "/control/filtering/status",
+    response_model=FilterStatus,
+    responses={
+        200: {"description": "OK"},
+        503: {"description": "AdGuard Home service unavailable", "model": ErrorResponse}
+    },
+    tags=["filtering"]
+)
+async def get_filtering_status() -> FilterStatus:
+    """Get the current filtering status using AdGuard spec."""
+    try:
+        async with adguard.AdGuardClient() as client:
+            return await client.get_filter_status()
+    except Exception as e:
+        logger.error(f"Error getting filter status: {str(e)}")
+        raise
 
 @app.exception_handler(AdGuardError)
 async def adguard_exception_handler(request: Request, exc: AdGuardError) -> JSONResponse:
@@ -132,96 +154,6 @@ async def adguard_exception_handler(request: Request, exc: AdGuardError) -> JSON
         status_code=status_code,
         content={"message": str(exc)}
     )
-
-@app.post(
-    "/control/filtering/check_host",
-    response_model=DomainResponse,
-    responses={
-        200: {"description": "OK"},
-        400: {"description": "Bad Request", "model": ErrorResponse},
-        503: {"description": "AdGuard Home service unavailable", "model": ErrorResponse}
-    },
-    tags=["filtering"]
-)
-async def check_domain(domain: str = Form(...)) -> Dict:
-    """Check if a domain is blocked by AdGuard Home."""
-    if not domain:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Domain is required"
-        )
-    
-    logger.info(f"Checking domain: {domain}")
-    try:
-        async with adguard.AdGuardClient() as client:
-            result = await client.check_domain(domain)
-            response = {
-                "success": True,
-                "domain": domain,
-                "filtered": result.reason.startswith("Filtered"),
-                "reason": result.reason,
-                "rule": result.rule,
-                "filter_list_id": result.filter_id,
-                "service_name": result.service_name,
-                "cname": result.cname,
-                "ip_addrs": result.ip_addrs
-            }
-            logger.info(f"Domain check result: {response}")
-            return response
-    except Exception as e:
-        logger.error(f"Error checking domain {domain}: {str(e)}")
-        raise
-
-@app.post(
-    "/control/filtering/whitelist/add",
-    response_model=DomainResponse,
-    responses={
-        200: {"description": "OK"},
-        400: {"description": "Bad Request", "model": ErrorResponse},
-        503: {"description": "AdGuard Home service unavailable", "model": ErrorResponse}
-    },
-    tags=["filtering"]
-)
-async def unblock_domain(domain: str = Form(...)) -> Dict:
-    """Add a domain to the allowed list."""
-    if not domain:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Domain is required"
-        )
-    
-    logger.info(f"Unblocking domain: {domain}")
-    try:
-        async with adguard.AdGuardClient() as client:
-            await client.add_allowed_domain(domain)
-            response = {
-                "success": True,
-                "domain": domain,
-                "message": f"Successfully unblocked {domain}"
-            }
-            logger.info(f"Domain unblock result: {response}")
-            return response
-    except Exception as e:
-        logger.error(f"Error unblocking domain {domain}: {str(e)}")
-        raise
-
-@app.get(
-    "/control/filtering/status",
-    response_model=FilterStatus,
-    responses={
-        200: {"description": "OK"},
-        503: {"description": "AdGuard Home service unavailable", "model": ErrorResponse}
-    },
-    tags=["filtering"]
-)
-async def get_filtering_status() -> FilterStatus:
-    """Get the current filtering status."""
-    try:
-        async with adguard.AdGuardClient() as client:
-            return await client.get_filter_status()
-    except Exception as e:
-        logger.error(f"Error getting filter status: {str(e)}")
-        raise
 
 def start():
     """Start the application using uvicorn."""
