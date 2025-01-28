@@ -53,10 +53,14 @@
                         unblockDiv.innerHTML = '';
                     }
                 } else {
+                    let errorMsg = data.message || 'Unknown error occurred';
+                    let errorType = response.status === 400 ? 'warning' : 'error';
+                    let bgColor = errorType === 'warning' ? 'yellow' : 'red';
+                    
                     resultDiv.innerHTML = `
-                        <div class="bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 p-4">
+                        <div class="bg-${bgColor}-100 border-l-4 border-${bgColor}-500 text-${bgColor}-700 p-4">
                             <p class="font-bold">Error checking domain</p>
-                            <p class="text-sm">${data.message || 'Unknown error occurred'}</p>
+                            <p class="text-sm">${errorMsg}</p>
                         </div>`;
                     unblockDiv.innerHTML = '';
                 }
@@ -94,18 +98,25 @@
                 });
                 
                 if (response.ok) {
+                    const data = await response.json();
                     resultDiv.innerHTML = `
                         <div class="bg-green-100 border-l-4 border-green-500 text-green-700 p-4">
                             <p class="font-bold">Success!</p>
-                            <p class="text-sm">Domain ${domain} has been added to the whitelist</p>
+                            <p class="text-sm">${data.message}</p>
+                            <p class="text-xs mt-2">A backup of the rules has been saved for safety.</p>
                         </div>`;
                     unblockDiv.innerHTML = '';
                 } else {
                     const data = await response.json();
+                    let errorMsg = data.message || 'Unknown error occurred';
+                    let errorType = response.status === 400 ? 'warning' : 'error';
+                    let bgColor = errorType === 'warning' ? 'yellow' : 'red';
+                    
                     resultDiv.innerHTML = `
-                        <div class="bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 p-4">
+                        <div class="bg-${bgColor}-100 border-l-4 border-${bgColor}-500 text-${bgColor}-700 p-4">
                             <p class="font-bold">Error unblocking domain</p>
-                            <p class="text-sm">${data.message || 'Unknown error occurred'}</p>
+                            <p class="text-sm">${errorMsg}</p>
+                            ${errorType !== 'warning' ? '<p class="text-xs mt-2">Previous rules have been restored from backup.</p>' : ''}
                         </div>`;
                 }
             } catch (error) {
@@ -113,6 +124,7 @@
                     <div class="bg-red-100 border-l-4 border-red-500 text-red-700 p-4">
                         <p class="font-bold">Error unblocking domain</p>
                         <p class="text-sm">${error.message}</p>
+                        <p class="text-xs mt-2">Previous rules have been restored from backup.</p>
                     </div>`;
             }
         }
@@ -128,9 +140,10 @@
                     <label for="domain" class="block text-gray-700 text-sm font-bold mb-2">
                         Enter Domain to Check
                     </label>
-                    <input type="text" id="domain" name="domain" required
+                    <input type="text" id="domain" name="domain" required pattern="^[a-zA-Z0-9][a-zA-Z0-9-]{0,61}[a-zA-Z0-9](\.[a-zA-Z0-9][a-zA-Z0-9-]{0,61}[a-zA-Z0-9])*$"
                            class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
-                           placeholder="example.com">
+                           placeholder="example.com"
+                           title="Please enter a valid domain name">
                 </div>
                 <button id="submit-btn" type="submit" 
                         class="bg-green-500 hover:bg-green-700 text-white font-bold py-2 px-4 rounded w-full transition-colors duration-200">
@@ -144,6 +157,8 @@
 
         <div class="mt-4 text-center text-gray-600 text-sm">
             Make sure your AdGuard Home instance is running and properly configured in the .env file.
+            <br>
+            <span class="text-xs">Rules are automatically backed up before any changes.</span>
         </div>
     </div>
 </body>

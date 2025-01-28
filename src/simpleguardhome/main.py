@@ -13,6 +13,7 @@ from .adguard import (
     AdGuardError,
     AdGuardConnectionError,
     AdGuardAPIError,
+    AdGuardValidationError,
     FilterStatus,
     FilterCheckHostResponse,
     SetRulesRequest
@@ -84,6 +85,11 @@ async def check_domain(name: str) -> FilterCheckHostResponse:
             result = await client.check_domain(name)
             logger.info(f"Domain check result: {result}")
             return result
+    except AdGuardValidationError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )
     except Exception as e:
         logger.error(f"Error checking domain {name}: {str(e)}")
         raise
@@ -106,19 +112,34 @@ async def add_to_whitelist(request: SetRulesRequest) -> Dict:
             detail="Rules are required"
         )
     
-    logger.info(f"Adding rules: {request.rules}")
+    # Extract domain from whitelist rule
+    rule = request.rules[0]
+    if not rule.startswith("@@||") or not rule.endswith("^"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid whitelist rule format"
+        )
+    
+    domain = rule[4:-1]  # Remove @@|| prefix and ^ suffix
+    logger.info(f"Adding domain to whitelist: {domain}")
+    
     try:
         async with adguard.AdGuardClient() as client:
-            success = await client.add_allowed_domain(request.rules[0].strip("@@||^"))
+            success = await client.add_allowed_domain(domain)
             if success:
-                return {"message": "Rules added successfully"}
+                return {"message": f"Domain {domain} added to whitelist"}
             else:
                 raise HTTPException(
                     status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                    detail="Failed to add rules"
+                    detail="Failed to add domain to whitelist"
                 )
+    except AdGuardValidationError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        )
     except Exception as e:
-        logger.error(f"Error adding rules: {str(e)}")
+        logger.error(f"Error adding domain to whitelist: {str(e)}")
         raise
 
 @app.get(
@@ -144,6 +165,8 @@ async def adguard_exception_handler(request: Request, exc: AdGuardError) -> JSON
     """Handle AdGuard-related exceptions according to spec."""
     if isinstance(exc, AdGuardConnectionError):
         status_code = status.HTTP_503_SERVICE_UNAVAILABLE
+    elif isinstance(exc, AdGuardValidationError):
+        status_code = status.HTTP_400_BAD_REQUEST
     elif isinstance(exc, AdGuardAPIError):
         status_code = status.HTTP_502_BAD_GATEWAY
     else:

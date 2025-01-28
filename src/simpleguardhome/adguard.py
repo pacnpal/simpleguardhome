@@ -1,12 +1,21 @@
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Set
 from pydantic import BaseModel, Field
 import httpx
 import logging
+import re
+import json
+from pathlib import Path
+from datetime import datetime
 from .config import settings
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
+
+# Constants for rule validation and backup
+DOMAIN_PATTERN = re.compile(r'^[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(\.[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*$')
+RULES_BACKUP_DIR = Path("rules_backup")
+RULES_BACKUP_DIR.mkdir(exist_ok=True)
 
 class AdGuardError(Exception):
     """Base exception for AdGuard Home API errors."""
@@ -18,6 +27,10 @@ class AdGuardConnectionError(AdGuardError):
 
 class AdGuardAPIError(AdGuardError):
     """Raised when AdGuard Home API returns an error."""
+    pass
+
+class AdGuardValidationError(AdGuardError):
+    """Raised when input validation fails."""
     pass
 
 class ResultRule(BaseModel):
@@ -55,6 +68,39 @@ class FilterStatus(BaseModel):
 class SetRulesRequest(BaseModel):
     """Request model for set_rules endpoint according to AdGuard spec."""
     rules: List[str] = Field(..., description="List of filtering rules")
+
+def validate_domain(domain: str) -> bool:
+    """Validate domain name format."""
+    if not domain or len(domain) > 255:
+        return False
+    return bool(DOMAIN_PATTERN.match(domain))
+
+def sanitize_rule(rule: str) -> str:
+    """Sanitize and validate rule format."""
+    # Remove any whitespace and normalize
+    rule = rule.strip()
+    # Basic XSS/injection prevention
+    rule = rule.replace('<', '').replace('>', '').replace('"', '').replace("'", '')
+    return rule
+
+def save_rules_backup(rules: List[str], action: str = "update") -> Path:
+    """Save rules to backup file with timestamp."""
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    backup_file = RULES_BACKUP_DIR / f"rules_{action}_{timestamp}.json"
+    with open(backup_file, 'w') as f:
+        json.dump({"rules": rules, "timestamp": timestamp}, f, indent=2)
+    logger.info(f"Saved rules backup to {backup_file}")
+    return backup_file
+
+def load_rules_backup(backup_file: Path) -> List[str]:
+    """Load rules from backup file."""
+    try:
+        with open(backup_file) as f:
+            data = json.load(f)
+            return data.get("rules", [])
+    except Exception as e:
+        logger.error(f"Error loading rules backup: {str(e)}")
+        return []
 
 class AdGuardClient:
     """Client for interacting with AdGuard Home API according to OpenAPI spec."""
@@ -114,6 +160,10 @@ class AdGuardClient:
     
     async def check_domain(self, domain: str) -> FilterCheckHostResponse:
         """Check if a domain is blocked by AdGuard Home according to spec."""
+        # Validate domain format
+        if not validate_domain(domain):
+            raise AdGuardValidationError(f"Invalid domain format: {domain}")
+
         await self._ensure_authenticated()
         url = f"{self.base_url}/filtering/check_host"
         params = {"name": domain}
@@ -146,42 +196,6 @@ class AdGuardClient:
             raise AdGuardAPIError(f"AdGuard Home API error: {str(e)}")
         except Exception as e:
             logger.error(f"Unexpected error while checking domain {domain}: {str(e)}")
-            raise AdGuardError(f"Unexpected error: {str(e)}")
-    
-    async def add_allowed_domain(self, domain: str) -> bool:
-        """Add a domain to the allowed list using set_rules endpoint according to spec."""
-        await self._ensure_authenticated()
-        url = f"{self.base_url}/filtering/set_rules"
-        # Add as a whitelist rule according to AdGuard format
-        data = {"rules": [f"@@||{domain}^"]}
-        headers = {}
-        
-        if self._session_cookie:
-            headers['Cookie'] = f'agh_session={self._session_cookie}'
-        
-        try:
-            logger.info(f"Adding domain to whitelist: {domain}")
-            response = await self.client.post(url, json=data, headers=headers)
-            
-            if response.status_code == 401:
-                logger.info("Session expired, attempting reauth")
-                await self.login()
-                if self._session_cookie:
-                    headers['Cookie'] = f'agh_session={self._session_cookie}'
-                response = await self.client.post(url, json=data, headers=headers)
-            
-            response.raise_for_status()
-            logger.info(f"Successfully added {domain} to whitelist")
-            return True
-            
-        except httpx.ConnectError as e:
-            logger.error(f"Connection error while whitelisting domain {domain}: {str(e)}")
-            raise AdGuardConnectionError(f"Failed to connect to AdGuard Home: {str(e)}")
-        except httpx.HTTPError as e:
-            logger.error(f"HTTP error while whitelisting domain {domain}: {str(e)}")
-            raise AdGuardAPIError(f"AdGuard Home API error: {str(e)}")
-        except Exception as e:
-            logger.error(f"Unexpected error while whitelisting domain {domain}: {str(e)}")
             raise AdGuardError(f"Unexpected error: {str(e)}")
 
     async def get_filter_status(self) -> FilterStatus:
@@ -217,6 +231,71 @@ class AdGuardClient:
             raise AdGuardAPIError(f"AdGuard Home API error: {str(e)}")
         except Exception as e:
             logger.error(f"Unexpected error while getting filter status: {str(e)}")
+            raise AdGuardError(f"Unexpected error: {str(e)}")
+    
+    async def add_allowed_domain(self, domain: str) -> bool:
+        """Add a domain to the allowed list using AdGuard filtering API."""
+        # Validate domain format
+        if not validate_domain(domain):
+            raise AdGuardValidationError(f"Invalid domain format: {domain}")
+
+        await self._ensure_authenticated()
+        
+        try:
+            # First get current user rules
+            status = await self.get_filter_status()
+            current_rules = status.user_rules if status else []
+            
+            # Create sanitized whitelist rule
+            new_rule = sanitize_rule(f"@@||{domain}^")
+            
+            # Save backup of current rules
+            old_backup = save_rules_backup(current_rules, "before")
+            
+            # Add rule if not already present
+            if new_rule not in current_rules:
+                current_rules.append(new_rule)
+                
+            # Save backup of new rules before updating
+            new_backup = save_rules_backup(current_rules, "after")
+            
+            # Update rules
+            url = f"{self.base_url}/filtering/set_rules"
+            data = {"rules": current_rules}
+            headers = {}
+            
+            if self._session_cookie:
+                headers['Cookie'] = f'agh_session={self._session_cookie}'
+            
+            logger.info(f"Updating rules list with whitelisted domain: {domain}")
+            response = await self.client.post(url, json=data, headers=headers)
+            
+            if response.status_code == 401:
+                logger.info("Session expired, attempting reauth")
+                await self.login()
+                if self._session_cookie:
+                    headers['Cookie'] = f'agh_session={self._session_cookie}'
+                response = await self.client.post(url, json=data, headers=headers)
+            
+            response.raise_for_status()
+            logger.info(f"Successfully updated rules list with whitelisted domain: {domain}")
+            return True
+            
+        except (httpx.ConnectError, httpx.HTTPError) as e:
+            # On error, try to restore from backup
+            logger.error(f"Error updating rules, attempting to restore from backup: {str(e)}")
+            if old_backup.exists():
+                try:
+                    old_rules = load_rules_backup(old_backup)
+                    if old_rules:
+                        await self.client.post(url, json={"rules": old_rules}, headers=headers)
+                        logger.info("Successfully restored rules from backup")
+                except Exception as restore_error:
+                    logger.error(f"Failed to restore from backup: {str(restore_error)}")
+            raise
+            
+        except Exception as e:
+            logger.error(f"Unexpected error while whitelisting domain {domain}: {str(e)}")
             raise AdGuardError(f"Unexpected error: {str(e)}")
     
     async def close(self):
