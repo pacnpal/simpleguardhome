@@ -1,8 +1,10 @@
 # Use official Python base image
 FROM python:3.11-slim
 
-# Set working directory
+# Set and create working directory
 WORKDIR /app
+RUN mkdir -p /app/src/simpleguardhome && \
+    chmod -R 755 /app
 
 # Install system dependencies
 RUN apt-get update && \
@@ -18,26 +20,33 @@ ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 # Upgrade pip and essential tools
 RUN pip install --no-cache-dir --upgrade pip setuptools wheel
 
-# Copy source code first
-COPY . /app/
+# Create necessary directories
+RUN mkdir -p /app/src
+
+# Copy source code first, maintaining directory structure
+COPY setup.py requirements.txt /app/
+COPY src /app/src/
 
 # Set PYTHONPATH
 ENV PYTHONPATH=/app/src
 
+# Verify directory structure
+RUN ls -R /app
+
 # Install requirements
+WORKDIR /app
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Install the package in development mode
-RUN cd /app && \
+# Install the package in development mode with verbose output
+RUN echo "Installing package..." && \
     pip uninstall -y simpleguardhome || true && \
     pip install -e . && \
-    echo "Verifying installation..." && \
+    echo "Verifying package files..." && \
+    ls -R /app/src/simpleguardhome/ && \
+    echo "Checking package installation..." && \
     pip show simpleguardhome && \
-    pip list | grep simpleguardhome && \
-    python3 -c "import sys; print('Python path:', sys.path)" && \
-    echo "Testing import..." && \
-    python3 -c "import simpleguardhome; print('Found package at:', simpleguardhome.__file__)" && \
-    ls -la /app/src/simpleguardhome/
+    echo "Verifying import..." && \
+    python3 -c "import simpleguardhome; from simpleguardhome.main import app; print('Package imported successfully')"
 
 # Copy and set up entrypoint script
 COPY docker-entrypoint.sh /usr/local/bin/

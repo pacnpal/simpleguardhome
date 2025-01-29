@@ -12,20 +12,38 @@ handle_term() {
 # Set up signal handlers
 trap handle_term SIGTERM SIGINT
 
-# Print diagnostic information
-echo "Verifying package installation..."
-echo "PYTHONPATH environment variable:"
-echo $PYTHONPATH
-echo "Directory contents of /app/src:"
-ls -la /app/src/
-echo "Directory contents of /app/src/simpleguardhome:"
-ls -la /app/src/simpleguardhome/
-echo "Python sys.path:"
-python3 -c "import sys; print('\n'.join(sys.path))"
-echo "Installed packages:"
-pip list | grep simpleguardhome
-echo "Attempting to import and locate simpleguardhome..."
-python3 -c "import simpleguardhome, os; print('Found at:', os.path.abspath(simpleguardhome.__file__)); print('Parent dir contents:', os.listdir(os.path.dirname(simpleguardhome.__file__)))" || exit 1
+# Verify package files exist
+echo "Verifying package files..."
+if [ ! -d "/app/src/simpleguardhome" ]; then
+    echo "ERROR: Package directory not found!"
+    exit 1
+fi
+
+if [ ! -f "/app/src/simpleguardhome/__init__.py" ]; then
+    echo "ERROR: Package __init__.py not found!"
+    exit 1
+fi
+
+if [ ! -f "/app/src/simpleguardhome/main.py" ]; then
+    echo "ERROR: Package main.py not found!"
+    exit 1
+fi
+
+# Print environment information
+echo "Environment:"
+echo "PYTHONPATH=$PYTHONPATH"
+echo "Current directory: $(pwd)"
+echo "Package contents:"
+ls -R /app/src/simpleguardhome/
+
+# Verify package can be imported
+echo "Verifying package import..."
+if ! python3 -c "import simpleguardhome; from simpleguardhome.main import app; print('Package imported successfully')"; then
+    echo "ERROR: Failed to import package!"
+    exit 1
+fi
+
+echo "All checks passed. Starting server..."
 
 # Start the application
 echo "Starting SimpleGuardHome server..."
