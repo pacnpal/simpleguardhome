@@ -42,6 +42,3 @@ htmlcov/
 
 # Project specific
 rules_backup/
-
-# Documentation
-*.md

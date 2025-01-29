@@ -1,24 +1,32 @@
-from fastapi import FastAPI, Request, Form, HTTPException, status
-from fastapi.templating import Jinja2Templates
-from fastapi.staticfiles import StaticFiles
-from fastapi.responses import HTMLResponse, JSONResponse
-from fastapi.middleware.cors import CORSMiddleware
-from pathlib import Path
-import httpx
 import logging
+from pathlib import Path
 from typing import Dict
-from . import adguard
-from .config import settings
-from .adguard import (
-    AdGuardError,
-    AdGuardConnectionError,
-    AdGuardAPIError,
-    AdGuardValidationError,
-    FilterStatus,
-    FilterCheckHostResponse,
-    SetRulesRequest
+
+import httpx  # noqa: F401
+from fastapi import (  # type: ignore  # noqa: F401
+    FastAPI,
+    Form,
+    HTTPException,
+    Request,
+    status,
 )
+from fastapi.middleware.cors import CORSMiddleware  # type: ignore
+from fastapi.responses import HTMLResponse, JSONResponse  # type: ignore
+from fastapi.staticfiles import StaticFiles  # type: ignore
+from fastapi.templating import Jinja2Templates  # type: ignore
 from pydantic import BaseModel, Field
+
+from . import adguard
+from .adguard import (
+    AdGuardAPIError,
+    AdGuardConnectionError,
+    AdGuardError,
+    AdGuardValidationError,
+    FilterCheckHostResponse,
+    FilterStatus,
+    SetRulesRequest,
+)
+from .config import settings  # noqa: F401
 
 # Configure logging
 logging.basicConfig(level=logging.INFO)
@@ -53,12 +61,16 @@ app.mount("/static", StaticFiles(directory=str(Path(__file__).parent)), name="st
 
 # Mount favicon.ico at root
 static_files_path = Path(__file__).parent
-app.mount("/favicon.ico", StaticFiles(directory=str(static_files_path)), name="favicon")
+app.mount("/favicon.ico",
+          StaticFiles(directory=str(static_files_path)), name="favicon")
 
 # Response models matching AdGuard spec
+
+
 class ErrorResponse(BaseModel):
     """Error response model according to AdGuard spec."""
     message: str = Field(..., description="The error message")
+
 
 @app.get("/", response_class=HTMLResponse)
 async def home(request: Request):
@@ -67,6 +79,7 @@ async def home(request: Request):
         "index.html",
         {"request": request}
     )
+
 
 @app.get(
     "/control/filtering/check_host",
@@ -85,7 +98,7 @@ async def check_domain(name: str) -> FilterCheckHostResponse:
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Domain name is required"
         )
-    
+
     logger.info(f"Checking domain: {name}")
     try:
         async with adguard.AdGuardClient() as client:
@@ -96,10 +109,11 @@ async def check_domain(name: str) -> FilterCheckHostResponse:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e)
-        )
+        ) from e
     except Exception as e:
         logger.error(f"Error checking domain {name}: {str(e)}")
         raise
+
 
 @app.post(
     "/control/filtering/set_rules",
@@ -118,7 +132,7 @@ async def add_to_whitelist(request: SetRulesRequest) -> Dict:
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Rules are required"
         )
-    
+
     # Extract domain from whitelist rule
     rule = request.rules[0]
     if not rule.startswith("@@||") or not rule.endswith("^"):
@@ -126,10 +140,10 @@ async def add_to_whitelist(request: SetRulesRequest) -> Dict:
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Invalid whitelist rule format"
         )
-    
+
     domain = rule[4:-1]  # Remove @@|| prefix and ^ suffix
     logger.info(f"Adding domain to whitelist: {domain}")
-    
+
     try:
         async with adguard.AdGuardClient() as client:
             success = await client.add_allowed_domain(domain)
@@ -144,10 +158,11 @@ async def add_to_whitelist(request: SetRulesRequest) -> Dict:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e)
-        )
+        ) from e
     except Exception as e:
         logger.error(f"Error adding domain to whitelist: {str(e)}")
         raise
+
 
 @app.get(
     "/control/filtering/status",
@@ -167,8 +182,9 @@ async def get_filtering_status() -> FilterStatus:
         logger.error(f"Error getting filter status: {str(e)}")
         raise
 
+
 @app.exception_handler(AdGuardError)
-async def adguard_exception_handler(request: Request, exc: AdGuardError) -> JSONResponse:
+async def adguard_exception_handler(_request: Request, exc: AdGuardError) -> JSONResponse:
     """Handle AdGuard-related exceptions according to spec."""
     if isinstance(exc, AdGuardConnectionError):
         status_code = status.HTTP_503_SERVICE_UNAVAILABLE
@@ -178,21 +194,23 @@ async def adguard_exception_handler(request: Request, exc: AdGuardError) -> JSON
         status_code = status.HTTP_502_BAD_GATEWAY
     else:
         status_code = status.HTTP_500_INTERNAL_SERVER_ERROR
-    
+
     return JSONResponse(
         status_code=status_code,
         content={"message": str(exc)}
     )
 
+
 def start():
     """Start the application using uvicorn."""
-    import uvicorn
+    import uvicorn  # type: ignore
     uvicorn.run(
         app,
         host="0.0.0.0",
         port=8000,
         reload=False  # Disable reload in Docker
     )
+
 
 if __name__ == "__main__":
     start()

@@ -1,3 +1,18 @@
-recursive-include src/simpleguardhome/templates *
+# Include all package Python files
+graft src/simpleguardhome
+
+# Include package data files
 include src/simpleguardhome/favicon.ico
-recursive-include src/simpleguardhome *.py
+include src/simpleguardhome/templates/*.html
+
+# Include important project files
+include README.md
+include LICENSE
+include requirements.txt
+include pyproject.toml
+include setup.py
+
+# Exclude bytecode files
+global-exclude *.py[cod]
+global-exclude __pycache__
+global-exclude *.so
