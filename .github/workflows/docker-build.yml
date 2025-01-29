@@ -51,12 +51,12 @@ jobs:
         with:
           images: ${{ secrets.DOCKERHUB_USERNAME }}/simpleguardhome
           tags: |
+            type=raw,value=latest,enable={{is_default_branch}}
             type=sha,format=long
             type=ref,event=branch
             type=ref,event=pr
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
-            type=ref,event=latest
             
       - name: Build and push
         uses: docker/build-push-action@4a13e500e55cf31b7a5d59a38ab2040ab0f42f56 # v5.1.0

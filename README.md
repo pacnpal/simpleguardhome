@@ -1,6 +1,29 @@
-# SimpleGuardHome
+<p align="center">
+  <img src="static/simpleguardhome.png" alt="SimpleGuardHome Logo" width="200">
+</p>
+
+<h1 align="center">SimpleGuardHome</h1>
+
+<p align="center">
+  <a href="https://github.com/pacnpal/simpleguardhome/releases"><img src="https://img.shields.io/badge/version-0.1.0-blue.svg" alt="Version 0.1.0"></a>
+  <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-green.svg" alt="MIT License"></a>
+  <a href="#requirements"><img src="https://img.shields.io/badge/python-3.9+-blue.svg" alt="Python 3.9+"></a>
+</p>
 
 A modern web application for checking and managing domain filtering in AdGuard Home. Built with FastAPI and modern JavaScript, following the official AdGuard Home OpenAPI specification.
+
+## Quick Start
+
+```bash
+# Using Docker
+docker run -d -p 8000:8000 -e ADGUARD_HOST=http://localhost -e ADGUARD_PORT=3000 pacnpal/simpleguardhome:latest
+
+# Or using Python
+pip install simpleguardhome
+python -m uvicorn simpleguardhome.main:app --port 8000
+```
+
+Then visit `http://localhost:8000` to start managing your AdGuard Home filtering.
 
 ## Features
 
@@ -13,18 +36,79 @@ A modern web application for checking and managing domain filtering in AdGuard H
 - ⚙️ Environment-based configuration
 - 📚 Full OpenAPI/Swagger documentation
 - ✅ Implements official AdGuard Home API spec
+- 🐳 Docker support
 
 ## Requirements
 
-- Python 3.9 or higher
+### System Requirements
+- Python 3.9 or higher (for local installation)
 - Running AdGuard Home instance
 - AdGuard Home API credentials (if authentication is enabled)
+- Docker (optional, for containerized deployment)
 
-## Installation
+### Python Dependencies
+- FastAPI - Web framework for building APIs
+- Uvicorn - ASGI server implementation
+- Python-dotenv - Environment variable management
+- HTTPX - Modern HTTP client
+- Pydantic - Data validation using Python type annotations
+- Jinja2 - Template engine for the web interface
+
+## Docker Installation
+
+The easiest way to get started is using Docker:
+
+1. Pull the Docker image:
+```bash
+docker pull pacnpal/simpleguardhome:latest
+```
+
+2. Create a `.env` file with your AdGuard Home settings:
+```env
+ADGUARD_HOST=http://localhost    # AdGuard Home host URL
+ADGUARD_PORT=3000               # AdGuard Home API port
+ADGUARD_USERNAME=admin          # Optional: AdGuard Home username
+ADGUARD_PASSWORD=password       # Optional: AdGuard Home password
+```
+
+3. Run the container:
+```bash
+docker run -d \
+  --name simpleguardhome \
+  -p 8000:8000 \
+  --env-file .env \
+  pacnpal/simpleguardhome:latest
+```
+
+The application will be available at `http://localhost:8000`
+
+### Docker Compose
+
+Alternatively, you can use Docker Compose. Create a `docker-compose.yml` file:
+
+```yaml
+version: '3'
+services:
+  simpleguardhome:
+    image: pacnpal/simpleguardhome:latest
+    container_name: simpleguardhome
+    ports:
+      - "8000:8000"
+    env_file:
+      - .env
+    restart: unless-stopped
+```
+
+Then run:
+```bash
+docker-compose up -d
+```
+
+## Local Installation
 
 1. Clone this repository:
 ```bash
-git clone https://github.com/yourusername/simpleguardhome.git
+git clone https://github.com/pacnpal/simpleguardhome.git
 cd simpleguardhome
 ```
 
@@ -56,6 +140,7 @@ ADGUARD_PASSWORD=password       # Optional: AdGuard Home password
 
 ## Running the Application
 
+### Local Development
 Start the application:
 ```bash
 python -m uvicorn src.simpleguardhome.main:app --reload
@@ -151,9 +236,13 @@ simpleguardhome/
 │       ├── adguard.py       # AdGuard Home API client
 │       └── templates/
 │           └── index.html   # Web interface
+├── static/
+│   └── simpleguardhome.png  # Project logo
 ├── requirements.txt
 ├── setup.py
 ├── .env.example
+├── Dockerfile
+├── docker-compose.yml
 └── README.md
 ```
 

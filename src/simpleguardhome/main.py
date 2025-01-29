@@ -44,9 +44,15 @@ app.add_middleware(
     expose_headers=["X-Request-ID"]
 )
 
-# Setup templates directory
+# Setup templates and static directories
 templates_path = Path(__file__).parent / "templates"
 templates = Jinja2Templates(directory=str(templates_path))
+
+# Mount static files from package directory
+app.mount("/static", StaticFiles(directory=str(Path(__file__).parent)), name="static")
+
+# Mount favicon.ico at root
+app.mount("/favicon.ico", StaticFiles(directory=str(Path(__file__).parent), files={"favicon.ico": "favicon.ico"}), name="favicon")
 
 # Response models matching AdGuard spec
 class ErrorResponse(BaseModel):
