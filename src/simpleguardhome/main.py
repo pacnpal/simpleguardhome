@@ -192,6 +192,59 @@ async def get_filtering_status() -> FilterStatus:
         raise
 
 
+@app.get(
+    "/control/filtering/unblock_host",
+    response_model=Dict,
+    responses={
+        200: {"description": "OK"},
+        400: {"description": "Bad Request", "model": ErrorResponse},
+        503: {"description": "AdGuard Home service unavailable", "model": ErrorResponse}
+    },
+    tags=["filtering"]
+)
+async def unblock_host(name: str) -> Dict:
+    """Unblock a domain by adding it to the whitelist if it's blocked."""
+    if not name:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Domain name is required"
+        )
+
+    logger.info(f"Checking domain status: {name}")
+    try:
+        async with adguard.AdGuardClient() as client:
+            # First check if domain is blocked
+            check_result = await client.check_domain(name)
+            
+            # If domain isn't blocked, no need to check whitelist or do anything else
+            if check_result.reason != "FilteredBlackList":
+                return {"message": f"Domain {name} is not blocked (Status: {check_result.reason})"}
+            
+            # Domain is blocked, check if it's already in whitelist
+            status_rules = await client.get_filter_status()
+            whitelist_rule = f"@@||{name}^"
+            if status_rules.user_rules and whitelist_rule in status_rules.user_rules:
+                return {"message": f"Domain {name} is already unblocked"}
+            
+            # Domain is blocked and not in whitelist, proceed with unblocking
+            success = await client.add_allowed_domain(name)
+            if success:
+                return {"message": f"Domain {name} has been unblocked"}
+            else:
+                raise HTTPException(
+                    status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    detail="Failed to unblock domain"
+                )
+    except AdGuardValidationError as e:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=str(e)
+        ) from e
+    except Exception as e:
+        logger.error(f"Error unblocking domain: {str(e)}")
+        raise
+
+
 @app.exception_handler(AdGuardError)
 async def adguard_exception_handler(_request: Request, exc: AdGuardError) -> JSONResponse:
     """Handle AdGuard-related exceptions according to spec."""
