@@ -94,7 +94,8 @@ RUN echo "=== 🚀 ULTRA FINAL VERIFICATION ===" && \
         echo "Verifying $backup:" && \
         tree "/app/$backup" && \
         echo "Testing import from $backup:" && \
-        PYTHONPATH="/app/$backup/src" python3 -c "from simpleguardhome.main import app; print(f'Import from {backup} successful')" && \
+        backup_name="$backup" && \
+        PYTHONPATH="/app/$backup/src" python3 -c "import os; from simpleguardhome.main import app; print(f'Import from {os.environ[\"backup_name\"]} successful')" && \
         echo "Verifying checksums for $backup:" && \
         cd "/app/$backup" && md5sum -c checksums.md5; \
     done && \
