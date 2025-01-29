@@ -28,23 +28,20 @@ check_package() {
     log "Current directory: $(pwd)"
     log "Directory contents:"
     ls -la
+
+    # Debug: Show all Python paths
+    log "Python paths:"
+    python3 -c "import sys; print('\n'.join(sys.path))"
     
-    # Debug: Show /app directory contents
-    log "Contents of /app directory:"
-    ls -la /app
-    
-    # Debug: Show /app/src directory contents
-    log "Contents of /app/src directory:"
-    ls -la /app/src || echo "src directory not found"
+    # Debug: Show package installation status
+    log "Installed packages:"
+    pip list
     
     log "Verifying package files..."
     if [ ! -d "/app/src/simpleguardhome" ]; then
-        log "ERROR: Package directory not found!"
-        log "Contents of parent directories:"
-        ls -la /
-        ls -la /app || echo "/app not found"
-        log "Full path check:"
-        find / -name "simpleguardhome" 2>/dev/null || echo "No simpleguardhome directory found"
+        log "ERROR: Package directory not found at /app/src/simpleguardhome"
+        log "Searching for package directory..."
+        find / -name "simpleguardhome" -type d 2>/dev/null || echo "No simpleguardhome directory found"
         exit 1
     fi
 
@@ -56,20 +53,20 @@ check_package() {
         fi
     done
 
+    log "Package structure:"
+    tree /app/src/simpleguardhome
+
     log "Environment variables:"
     echo "PYTHONPATH=$PYTHONPATH"
     echo "PWD=$(pwd)"
     
-    log "Package contents:"
-    find /app/src/simpleguardhome -type f
-
     log "Testing package import..."
     PYTHONPATH=/app/src python3 -c "
 import sys
-import simpleguardhome
-from simpleguardhome.main import app
 print('Python path:', sys.path)
+import simpleguardhome
 print('Package location:', simpleguardhome.__file__)
+from simpleguardhome.main import app
 print('Package imported successfully')
 " || {
         log "ERROR: Package import failed!"
@@ -77,8 +74,11 @@ print('Package imported successfully')
     }
 }
 
-# Run checks
-check_package
+# Run checks with error handling
+if ! check_package; then
+    log "Package verification failed"
+    exit 1
+fi
 
 log "All checks passed. Starting server..."
 

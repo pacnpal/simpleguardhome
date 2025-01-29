@@ -1,10 +1,10 @@
-# Use official Python base image
-FROM python:3.11-slim-bullseye
+# Stage 1: Build dependencies
+FROM python:3.11-slim-bullseye as builder
 
 # Set working directory
-WORKDIR /app
+WORKDIR /build
 
-# Install system dependencies with architecture-specific handling
+# Install build dependencies
 RUN apt-get update && \
     DEBIAN_FRONTEND=noninteractive apt-get install -y \
     --no-install-recommends \
@@ -17,26 +17,42 @@ RUN apt-get update && \
     && rm -rf /var/lib/apt/lists/* \
     && python3 -m pip install --no-cache-dir --upgrade "pip>=21.3" setuptools wheel
 
-# Add architecture-specific compiler flags if needed
-ENV ARCHFLAGS=""
-
-# Copy requirements first to leverage Docker cache
-COPY requirements.txt /app/
+# Copy requirements and install dependencies
+COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy the entire project
+# Stage 2: Final image
+FROM python:3.11-slim-bullseye
+
+# Install runtime dependencies and tree for debugging
+RUN apt-get update && \
+    DEBIAN_FRONTEND=noninteractive apt-get install -y \
+    --no-install-recommends \
+    tree \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+# Set working directory
+WORKDIR /app
+
+# Copy installed dependencies from builder
+COPY --from=builder /usr/local/lib/python3.11/site-packages/ /usr/local/lib/python3.11/site-packages/
+COPY --from=builder /usr/local/bin/ /usr/local/bin/
+
+# Debug: Show current state
+RUN echo "Initial directory structure:" && \
+    tree /app || true
+
+# Copy project files
 COPY . /app/
 
-# Debug: Show project structure after copy
-RUN echo "Project structure after copy:" && \
+# Debug: Show copied files
+RUN echo "After copying project files:" && \
     tree /app && \
-    echo "Verifying source directory:" && \
-    if [ ! -d "/app/src/simpleguardhome" ]; then \
-        echo "ERROR: Source directory missing!" && \
-        exit 1; \
-    fi && \
-    echo "Source directory contents:" && \
-    ls -la /app/src/simpleguardhome/
+    echo "Listing src directory:" && \
+    ls -la /app/src && \
+    echo "Listing package directory:" && \
+    ls -la /app/src/simpleguardhome
 
 # Set permissions
 RUN chmod -R 755 /app && \
@@ -46,16 +62,17 @@ RUN chmod -R 755 /app && \
 # Set PYTHONPATH
 ENV PYTHONPATH=/app/src
 
-# Install Python package in development mode
-RUN set -e && \
+# Install the package
+RUN set -ex && \
     echo "Installing package..." && \
     pip install -e . && \
-    echo "Verifying package installation..." && \
-    python3 -c "import simpleguardhome; print('Package location:', simpleguardhome.__file__)" && \
-    python3 -c "from simpleguardhome.main import app; print('App imported successfully')" && \
-    echo "Package installation successful" && \
-    # Create rules backup directory with proper permissions
-    mkdir -p /app/rules_backup && \
+    echo "Verifying installation..." && \
+    python3 -c "import sys; print('Python path:', sys.path)" && \
+    python3 -c "import simpleguardhome; print('Package found at:', simpleguardhome.__file__)" && \
+    python3 -c "from simpleguardhome.main import app; print('App imported successfully')"
+
+# Create rules backup directory
+RUN mkdir -p /app/rules_backup && \
     chmod 777 /app/rules_backup
 
 # Default environment variables
