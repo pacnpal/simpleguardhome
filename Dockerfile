@@ -13,8 +13,8 @@ RUN apt-get update && \
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy source code
-COPY src /app/src
+# Copy the package directly to /app for simpler imports
+COPY src/simpleguardhome /app/simpleguardhome
 
 # Create rules_backup directory with proper permissions
 RUN mkdir -p rules_backup && chmod 777 rules_backup
