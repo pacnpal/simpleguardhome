@@ -1,4 +1,4 @@
-# Stage 1: Build dependencies
+# Stage 1: Build dependencies and package
 FROM python:3.11-slim-bullseye as builder
 
 # Set working directory
@@ -17,14 +17,22 @@ RUN apt-get update && \
     && rm -rf /var/lib/apt/lists/* \
     && python3 -m pip install --no-cache-dir --upgrade "pip>=21.3" setuptools wheel
 
-# Copy requirements and install dependencies
+# Copy package files
+COPY src/ /build/src/
+COPY pyproject.toml setup.py MANIFEST.in README.md LICENSE ./
+
+# Install requirements and build package
 COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt && \
+    pip install -e .
+
+# Verify package installation in builder
+RUN python3 -c "import simpleguardhome; print(f'Package installed at {simpleguardhome.__file__}')"
 
 # Stage 2: Final image
 FROM python:3.11-slim-bullseye
 
-# Install runtime dependencies and tree for debugging
+# Install runtime dependencies
 RUN apt-get update && \
     DEBIAN_FRONTEND=noninteractive apt-get install -y \
     --no-install-recommends \
@@ -35,43 +43,30 @@ RUN apt-get update && \
 # Set working directory
 WORKDIR /app
 
-# Copy installed dependencies from builder
+# Create source directory
+RUN mkdir -p /app/src/simpleguardhome
+
+# Copy package files from builder
+COPY --from=builder /build/src/simpleguardhome/ /app/src/simpleguardhome/
+COPY --from=builder /build/setup.py /build/pyproject.toml /build/MANIFEST.in /app/
+
+# Copy dependencies from builder
 COPY --from=builder /usr/local/lib/python3.11/site-packages/ /usr/local/lib/python3.11/site-packages/
 COPY --from=builder /usr/local/bin/ /usr/local/bin/
 
-# Debug: Show initial state
-RUN echo "Initial directory structure:" && \
-    tree /app || true
-
-# First copy the package source directory
-COPY src/ /app/src/
-
-# Copy project files
-COPY pyproject.toml setup.py MANIFEST.in README.md LICENSE docker-entrypoint.sh ./
-
-# Debug: Verify directory structure
-RUN echo "After copying files:" && \
-    tree /app && \
-    echo "Verifying package directory:" && \
-    ls -la /app/src/simpleguardhome/
-
-# Set permissions
-RUN chmod -R 755 /app && \
-    chmod +x /app/docker-entrypoint.sh && \
+# Copy and set permissions for entrypoint
+COPY docker-entrypoint.sh /app/
+RUN chmod +x /app/docker-entrypoint.sh && \
     cp /app/docker-entrypoint.sh /usr/local/bin/
+
+# Debug: Show directory structure
+RUN echo "Directory structure:" && \
+    tree /app && \
+    echo "Package contents:" && \
+    ls -la /app/src/simpleguardhome/
 
 # Set PYTHONPATH
 ENV PYTHONPATH=/app/src
-
-# Install the package
-RUN set -ex && \
-    echo "Installing package..." && \
-    pip install -e . && \
-    echo "Verifying installation..." && \
-    python3 -c "import sys; print('Python path:', sys.path)" && \
-    python3 -c "import simpleguardhome; print('Package found at:', simpleguardhome.__file__)" && \
-    python3 -c "from simpleguardhome.main import app; print('App imported successfully')" && \
-    echo "Package installation successful"
 
 # Create rules backup directory
 RUN mkdir -p /app/rules_backup && \

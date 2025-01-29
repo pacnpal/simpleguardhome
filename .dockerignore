@@ -1,7 +1,40 @@
-# Ignore everything by default
-*
+# Version control
+.git/
+.gitignore
+.gitattributes
 
-# Explicitly allow required files
+# Cache and temporary files
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg
+*.egg-info/
+.installed.cfg
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Environment and IDE
+venv/
+env/
+.env
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Build artifacts
+build/
+dist/
+wheels/
+
+# Project specific
+rules_backup/
+
+# Keep these files
+!src/
 !src/simpleguardhome/
 !src/simpleguardhome/**
 !requirements.txt
@@ -11,14 +44,3 @@
 !LICENSE
 !README.md
 !docker-entrypoint.sh
-
-# Still exclude these even if in allowed directories
-**/__pycache__
-**/*.pyc
-**/*.pyo
-**/*.pyd
-**/.Python
-**/*.so
-**/*.egg
-**/*.egg-info
-**/*.egg-info/

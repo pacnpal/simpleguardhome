@@ -21,70 +21,61 @@ log() {
 check_package() {
     log "System information:"
     uname -a
+    
     log "Python version:"
     python3 --version
     
-    # Debug: Show current directory and its contents
-    log "Current directory: $(pwd)"
-    log "Directory contents:"
-    ls -la
-
-    # Debug: Show all Python paths
-    log "Python paths:"
-    python3 -c "import sys; print('\n'.join(sys.path))"
-    
-    # Debug: Show package installation status
-    log "Installed packages:"
-    pip list
+    log "Directory structure:"
+    tree /app
     
     log "Verifying package files..."
     if [ ! -d "/app/src/simpleguardhome" ]; then
-        log "ERROR: Package directory not found at /app/src/simpleguardhome"
-        log "Searching for package directory..."
-        find / -name "simpleguardhome" -type d 2>/dev/null || echo "No simpleguardhome directory found"
+        log "ERROR: Package directory not found at /app/src/simpleguardhome!"
         exit 1
     fi
 
-    log "Checking critical files..."
-    for file in "__init__.py" "main.py" "adguard.py" "config.py"; do
+    # Check critical files
+    required_files=(
+        "__init__.py"
+        "main.py"
+        "adguard.py"
+        "config.py"
+        "templates/index.html"
+        "favicon.ico"
+    )
+
+    for file in "${required_files[@]}"; do
         if [ ! -f "/app/src/simpleguardhome/$file" ]; then
             log "ERROR: Required file $file not found!"
             exit 1
         fi
     done
 
-    log "Package structure:"
-    tree /app/src/simpleguardhome
-
-    log "Environment variables:"
-    echo "PYTHONPATH=$PYTHONPATH"
-    echo "PWD=$(pwd)"
+    log "Environment:"
+    echo "PYTHONPATH: $PYTHONPATH"
+    echo "PWD: $(pwd)"
     
     log "Testing package import..."
-    PYTHONPATH=/app/src python3 -c "
+    if ! python3 -c "
 import sys
-print('Python path:', sys.path)
+print('Python paths:', sys.path)
 import simpleguardhome
-print('Package location:', simpleguardhome.__file__)
+print('Package found at:', simpleguardhome.__file__)
 from simpleguardhome.main import app
 print('Package imported successfully')
-" || {
+"; then
         log "ERROR: Package import failed!"
         exit 1
-    }
+    fi
 }
 
-# Run checks with error handling
-if ! check_package; then
-    log "Package verification failed"
-    exit 1
-fi
+# Run checks
+check_package
 
 log "All checks passed. Starting server..."
 
 # Start the application
-echo "Starting SimpleGuardHome server..."
-exec python3 -c "from simpleguardhome import start; start()"
+exec python3 -m uvicorn simpleguardhome.main:app --host 0.0.0.0 --port 8000
 
 # Store child PID
 child=$!
