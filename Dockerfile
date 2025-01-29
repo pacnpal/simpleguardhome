@@ -14,7 +14,7 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy source code
-COPY src/simpleguardhome /app/src/simpleguardhome/
+COPY src/simpleguardhome /app/simpleguardhome/
 
 # Set up health check
 COPY healthcheck.py /usr/local/bin/
@@ -24,8 +24,7 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
     CMD python3 /usr/local/bin/healthcheck.py
 
 # Environment setup
-ENV PYTHONPATH=/app/src \
-    ADGUARD_HOST="http://localhost" \
+ENV ADGUARD_HOST="http://localhost" \
     ADGUARD_PORT=3000
 
 # Expose application port
