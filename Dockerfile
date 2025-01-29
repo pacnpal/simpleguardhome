@@ -39,20 +39,21 @@ WORKDIR /app
 COPY --from=builder /usr/local/lib/python3.11/site-packages/ /usr/local/lib/python3.11/site-packages/
 COPY --from=builder /usr/local/bin/ /usr/local/bin/
 
-# Debug: Show current state
+# Debug: Show initial state
 RUN echo "Initial directory structure:" && \
     tree /app || true
 
-# Copy project files
-COPY . /app/
+# First copy the package source directory
+COPY src/ /app/src/
 
-# Debug: Show copied files
-RUN echo "After copying project files:" && \
+# Copy project files
+COPY pyproject.toml setup.py MANIFEST.in README.md LICENSE docker-entrypoint.sh ./
+
+# Debug: Verify directory structure
+RUN echo "After copying files:" && \
     tree /app && \
-    echo "Listing src directory:" && \
-    ls -la /app/src && \
-    echo "Listing package directory:" && \
-    ls -la /app/src/simpleguardhome
+    echo "Verifying package directory:" && \
+    ls -la /app/src/simpleguardhome/
 
 # Set permissions
 RUN chmod -R 755 /app && \
@@ -69,7 +70,8 @@ RUN set -ex && \
     echo "Verifying installation..." && \
     python3 -c "import sys; print('Python path:', sys.path)" && \
     python3 -c "import simpleguardhome; print('Package found at:', simpleguardhome.__file__)" && \
-    python3 -c "from simpleguardhome.main import app; print('App imported successfully')"
+    python3 -c "from simpleguardhome.main import app; print('App imported successfully')" && \
+    echo "Package installation successful"
 
 # Create rules backup directory
 RUN mkdir -p /app/rules_backup && \
