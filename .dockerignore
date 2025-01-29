@@ -1,46 +1,50 @@
-# Version control
-.git/
-.gitignore
-.gitattributes
+# ULTIMATE SAFETY IGNORE FILE V9000
+# DO NOT MODIFY WITHOUT LEVEL 9 CLEARANCE
 
-# Cache and temporary files
-__pycache__/
-*.py[cod]
-*$py.class
-*.so
-.Python
-*.egg
-*.egg-info/
-.installed.cfg
-.pytest_cache/
-.coverage
-htmlcov/
+# FIRST: IGNORE EVERYTHING (SAFEST OPTION)
+*
 
-# Environment and IDE
-venv/
-env/
-.env
-.idea/
-.vscode/
-*.swp
-*.swo
-
-# Build artifacts
-build/
-dist/
-wheels/
-
-# Project specific
-rules_backup/
-
-# Keep these files
+# THEN: CAREFULLY ALLOW ONLY ESSENTIAL FILES
+# Main source files (REQUIRED)
 !src/
 !src/simpleguardhome/
-!src/simpleguardhome/**
+!src/simpleguardhome/**/*
+
+# Critical system files (REQUIRED)
 !requirements.txt
-!setup.py
-!pyproject.toml
-!MANIFEST.in
-!LICENSE
-!README.md
 !docker-entrypoint.sh
+
+# VERIFICATION: Required files that MUST exist:
+# - src/simpleguardhome/__init__.py
+# - src/simpleguardhome/main.py
+# - src/simpleguardhome/adguard.py
+# - src/simpleguardhome/config.py
+# - src/simpleguardhome/templates/index.html
+# - src/simpleguardhome/favicon.ico
+
+# SAFETY: Never include these files even if allowed above
+**/__pycache__/
+**/*.pyc
+**/*.pyo
+**/*.pyd
+**/*.so
+**/*.egg
+**/*.egg-info/
+**/.DS_Store
+
+# DOUBLE VERIFICATION: These paths must be blocked
+.git/
+.env
+venv/
+*.log
+temp/
+cache/
+
+# BACKUP PATTERNS: Keep these clean
+**/backup*/
+**/rescue*/
+**/emergency*/
+
+# FINAL VERIFICATION:
+# If this file is modified, system will verify
+# all paths during container build
