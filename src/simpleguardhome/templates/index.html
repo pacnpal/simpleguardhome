@@ -46,9 +46,37 @@
             }
         }
 
+        function preprocessDomain(input) {
+            // Strip http:// or https:// from the beginning
+            let domain = input.replace(/^https?:\/\//i, '');
+            
+            // Strip any paths or query parameters
+            domain = domain.split('/')[0];
+            
+            // Basic domain validation
+            const domainRegex = /^[a-zA-Z0-9][a-zA-Z0-9.-]*[a-zA-Z0-9]$/;
+            if (!domainRegex.test(domain)) {
+                throw new Error('Invalid domain format. Please enter a valid domain name (e.g., example.com)');
+            }
+            
+            return domain;
+        }
+
         async function checkDomain(event) {
             event.preventDefault();
-            const domain = DOMPurify.sanitize(document.getElementById('domain').value);
+            const rawInput = DOMPurify.sanitize(document.getElementById('domain').value);
+            let domain;
+            try {
+                domain = preprocessDomain(rawInput);
+            } catch (error) {
+                resultDiv.innerHTML = `
+                    <div class="bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 p-4">
+                        <p class="font-bold">Invalid Input</p>
+                        <p class="text-sm">${escapeHtml(error.message)}</p>
+                    </div>`;
+                unblockDiv.innerHTML = '';
+                return;
+            }
             const resultDiv = document.getElementById('result');
             const unblockDiv = document.getElementById('unblock-action');
             const submitBtn = document.getElementById('submit-btn');
@@ -156,7 +184,7 @@
                     <label for="domain" class="block text-gray-700 text-sm font-bold mb-2">
                         Enter Domain to Check
                     </label>
-                    <input type="text" id="domain" name="domain" required pattern="[a-zA-Z0-9][a-zA-Z0-9-]*[a-zA-Z0-9]\.[a-zA-Z0-9-\.]*[a-zA-Z0-9]"
+                    <input type="text" id="domain" name="domain" required
                            class="shadow appearance-none border rounded w-full py-2 px-3 text-gray-700 leading-tight focus:outline-none focus:shadow-outline"
                            placeholder="example.com"
                            title="Please enter a valid domain name">
