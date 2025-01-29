@@ -37,8 +37,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 RUN set -e && \
     echo "Installing package..." && \
     pip uninstall -y simpleguardhome || true && \
-    # Install package with dependencies and PEP 517 support
-    pip install --use-pep517 -e . && \
+    # Install package in editable mode with compatibility mode enabled
+    pip install --use-pep517 -e . --config-settings editable_mode=compat && \
     echo "Verifying installation..." && \
     pip show simpleguardhome && \
     # List all package files

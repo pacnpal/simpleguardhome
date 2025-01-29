@@ -27,6 +27,3 @@ packages = {find = {where = ["src"]}}
 
 [tool.setuptools.package-data]
 simpleguardhome = ["templates/*", "favicon.ico"]
-
-[tool.setuptools.editable]
-mode = "compat"
