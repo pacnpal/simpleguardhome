@@ -18,22 +18,26 @@ ENV PATH="$VIRTUAL_ENV/bin:$PATH"
 # Upgrade pip and essential tools
 RUN pip install --no-cache-dir --upgrade pip setuptools wheel
 
-# Copy requirements first for better caching
-COPY requirements.txt .
+# Copy source code first
+COPY . /app/
 
-# Install Python dependencies in venv
+# Set PYTHONPATH
+ENV PYTHONPATH=/app/src
+
+# Install requirements
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy the source code
-COPY . .
-
-# Clean any previous installations and install the package
-RUN pip uninstall -y simpleguardhome || true && \
+# Install the package in development mode
+RUN cd /app && \
+    pip uninstall -y simpleguardhome || true && \
     pip install -e . && \
+    echo "Verifying installation..." && \
     pip show simpleguardhome && \
-    pip list && \
+    pip list | grep simpleguardhome && \
     python3 -c "import sys; print('Python path:', sys.path)" && \
-    python3 -c "import simpleguardhome; print('Package found at:', simpleguardhome.__file__)"
+    echo "Testing import..." && \
+    python3 -c "import simpleguardhome; print('Found package at:', simpleguardhome.__file__)" && \
+    ls -la /app/src/simpleguardhome/
 
 # Copy and set up entrypoint script
 COPY docker-entrypoint.sh /usr/local/bin/
