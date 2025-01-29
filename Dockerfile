@@ -43,9 +43,11 @@ RUN pip install --no-cache-dir -r requirements.txt && \
     echo "⚡ Installed and verified packages:" && \
     pip list
 
-# STEP 3: Copy source with CHECKSUM verification
+# STEP 3: Copy source with CHECKSUM verification and create symlink
 COPY src/simpleguardhome /app/main/src/simpleguardhome/
-RUN echo "Creating verified backups..." && \
+RUN mkdir -p /app/src && \
+    ln -s /app/main/src /app/src && \
+    echo "Creating verified backups..." && \
     for backup in backup1 backup2 backup3 backup4 rescue emergency last_resort ultrabackup; do \
         cp -r /app/main/src/simpleguardhome/* "/app/$backup/src/simpleguardhome/" && \
         find "/app/$backup/src/simpleguardhome" -type f -exec md5sum {} \; > "/app/$backup/checksums.md5" && \
