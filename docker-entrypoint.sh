@@ -3,5 +3,10 @@ set -e
 
 echo "[$(date '+%Y-%m-%d %H:%M:%S')] Starting SimpleGuardHome..."
 
-# Just run uvicorn pointing to the app
-exec python3 -m uvicorn simpleguardhome.main:app --host 0.0.0.0 --port 8000
+# Verify package can be imported
+echo "Verifying package installation..."
+python3 -c "import simpleguardhome" || exit 1
+
+# Start the application
+echo "Starting SimpleGuardHome server..."
+exec python3 -m simpleguardhome.main

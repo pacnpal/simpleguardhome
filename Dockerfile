@@ -13,11 +13,14 @@ RUN apt-get update && \
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy the package directly to /app for simpler imports
-COPY src/simpleguardhome /app/simpleguardhome
+# Copy the source code
+COPY . .
 
-# Create rules_backup directory with proper permissions
-RUN mkdir -p rules_backup && chmod 777 rules_backup
+# Clean any previous installations and install the package
+RUN pip uninstall -y simpleguardhome || true && \
+    pip install -e . && \
+    pip show simpleguardhome && \
+    python3 -c "import simpleguardhome; print('Package found at:', simpleguardhome.__file__)"
 
 # Set up health check
 COPY healthcheck.py /usr/local/bin/
