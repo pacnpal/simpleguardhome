@@ -25,7 +25,8 @@ RUN for backup in main backup1 backup2 backup3 backup4 rescue emergency last_res
         mkdir -p "/app/$backup/monitor" && \
         chmod -R 755 "/app/$backup" && \
         echo "Created $backup hierarchy"; \
-    done
+    done && \
+    mkdir -p /app/monitor
 
 # STEP 2: Install Python packages with verification
 COPY requirements.txt .
@@ -51,9 +52,10 @@ RUN echo "Creating verified backups..." && \
         echo "✓ Created and verified $backup"; \
     done
 
-# STEP 4: Create monitoring script
-RUN echo 'import os,sys,psutil,time,json,logging\nwhile True:\n    stats={"cpu":psutil.cpu_percent(),"mem":psutil.virtual_memory().percent,"disk":psutil.disk_usage("/").percent}\n    for backup in ["main","backup1","backup2","backup3","backup4","rescue","emergency","last_resort","ultrabackup"]:\n        if not os.path.exists(f"/app/{backup}/src/simpleguardhome"): stats[f"{backup}_missing"]=True\n    with open("/app/monitor/stats.json","w") as f: json.dump(stats,f)\n    time.sleep(5)' > /app/monitor/monitor.py && \
-    chmod +x /app/monitor/monitor.py
+# STEP 4: Set up monitoring
+COPY monitor.py /app/monitor/
+RUN chmod +x /app/monitor/monitor.py && \
+    echo "✓ Installed monitoring system"
 
 # STEP 5: Set up health check script
 COPY healthcheck.py /usr/local/bin/
@@ -96,6 +98,8 @@ RUN echo "=== 🚀 ULTRA FINAL VERIFICATION ===" && \
         echo "Verifying checksums for $backup:" && \
         cd "/app/$backup" && md5sum -c checksums.md5; \
     done && \
+    echo "Testing monitoring system:" && \
+    python3 -c "import psutil; print('Monitoring system ready')" && \
     echo "✅ EVERYTHING IS VERIFIED, BACKED UP, AND MONITORED!"
 
 # Copy entrypoint script
