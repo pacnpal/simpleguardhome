@@ -6,6 +6,18 @@
     <title>SimpleGuardHome</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script>
+        function escapeHtml(unsafe) {
+            return unsafe.replace(/[&<"']/g, function (m) {
+                switch (m) {
+                    case '&': return '&amp;';
+                    case '<': return '&lt;';
+                    case '>': return '&gt;';
+                    case '"': return '&quot;';
+                    case "'": return '&#039;';
+                    default: return m;
+                }
+            });
+        }
         async function checkDomain(event) {
             event.preventDefault();
             const domain = document.getElementById('domain').value;
@@ -33,10 +45,10 @@
                         resultDiv.innerHTML = `
                             <div class="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-4">
                                 <p class="font-bold">Domain is blocked</p>
-                                <p class="text-sm"><strong>${domain}</strong> is blocked</p>
-                                <p class="text-sm">Reason: ${data.reason}</p>
-                                ${data.rules?.length ? `<p class="text-sm font-mono bg-red-50 p-2 mt-1 rounded">Rule: ${data.rules[0].text}</p>` : ''}
-                                ${data.service_name ? `<p class="text-sm mt-2">Service: ${data.service_name}</p>` : ''}
+                                <p class="text-sm"><strong>${escapeHtml(domain)}</strong> is blocked</p>
+                                <p class="text-sm">Reason: ${escapeHtml(data.reason)}</p>
+                                ${data.rules?.length ? `<p class="text-sm font-mono bg-red-50 p-2 mt-1 rounded">Rule: ${escapeHtml(data.rules[0].text)}</p>` : ''}
+                                ${data.service_name ? `<p class="text-sm mt-2">Service: ${escapeHtml(data.service_name)}</p>` : ''}
                             </div>`;
                         unblockDiv.innerHTML = `
                             <button onclick="unblockDomain('${domain}')" 
@@ -47,8 +59,8 @@
                         resultDiv.innerHTML = `
                             <div class="bg-green-100 border-l-4 border-green-500 text-green-700 p-4">
                                 <p class="font-bold">Domain is not blocked</p>
-                                <p class="text-sm"><strong>${domain}</strong> is allowed</p>
-                                <p class="text-xs mt-2">Status: ${data.reason}</p>
+                                <p class="text-sm"><strong>${escapeHtml(domain)}</strong> is allowed</p>
+                                <p class="text-xs mt-2">Status: ${escapeHtml(data.reason)}</p>
                             </div>`;
                         unblockDiv.innerHTML = '';
                     }
@@ -60,7 +72,7 @@
                     resultDiv.innerHTML = `
                         <div class="bg-${bgColor}-100 border-l-4 border-${bgColor}-500 text-${bgColor}-700 p-4">
                             <p class="font-bold">Error checking domain</p>
-                            <p class="text-sm">${errorMsg}</p>
+                            <p class="text-sm">${escapeHtml(errorMsg)}</p>
                         </div>`;
                     unblockDiv.innerHTML = '';
                 }
@@ -68,7 +80,7 @@
                 resultDiv.innerHTML = `
                     <div class="bg-red-100 border-l-4 border-red-500 text-red-700 p-4">
                         <p class="font-bold">Error checking domain</p>
-                        <p class="text-sm">${error.message}</p>
+                        <p class="text-sm">${escapeHtml(error.message)}</p>
                     </div>`;
                 unblockDiv.innerHTML = '';
             } finally {
