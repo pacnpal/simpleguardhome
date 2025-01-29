@@ -14,7 +14,10 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy source code
-COPY src/simpleguardhome /app/simpleguardhome/
+COPY src /app/src
+
+# Create rules_backup directory with proper permissions
+RUN mkdir -p rules_backup && chmod 777 rules_backup
 
 # Set up health check
 COPY healthcheck.py /usr/local/bin/
@@ -35,3 +38,6 @@ COPY docker-entrypoint.sh /usr/local/bin/
 RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 
 ENTRYPOINT ["docker-entrypoint.sh"]
+
+# Mark rules_backup as a volume
+VOLUME ["/app/rules_backup"]
