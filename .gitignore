@@ -170,3 +170,4 @@ cython_debug/
 # PyPI configuration file
 .pypirc
 rules*.json
+.DS_Store
