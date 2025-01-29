@@ -8,14 +8,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/2.3.4/purify.min.js" integrity="sha384-KGmzmwrs7oAU2sG5qfETslFsscVcCaxQrX2d7PW7I9bTrsuTD/eSMFr9jaMS9i+b" crossorigin="anonymous"></script>
     <script>
         function escapeHtml(unsafe) {
-            return unsafe
-                .replace(/&/g, "&amp;")
-                .replace(/</g, "&lt;")
-                .replace(/>/g, "&gt;")
-                .replace(/"/g, "&quot;")
-                .replace(/'/g, "&#039;");
-        }
-            return unsafe.replace(/[&<"']/g, function (m) {
+            return unsafe.replace(/[&<>"']/g, function(m) {
                 switch (m) {
                     case '&': return '&amp;';
                     case '<': return '&lt;';
@@ -26,6 +19,33 @@
                 }
             });
         }
+        function renderDomainStatus(resultDiv, unblockDiv, domain, data) {
+            const isBlocked = data.reason.startsWith('Filtered');
+            if (isBlocked) {
+                resultDiv.innerHTML = `
+                    <div class="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-4">
+                        <p class="font-bold">Domain is blocked</p>
+                        <p class="text-sm"><strong>${escapeHtml(domain)}</strong> is blocked</p>
+                        <p class="text-sm">Reason: ${escapeHtml(data.reason)}</p>
+                        ${data.rules?.length ? `<p class="text-sm font-mono bg-red-50 p-2 mt-1 rounded">Rule: ${escapeHtml(data.rules[0].text)}</p>` : ''}
+                        ${data.service_name ? `<p class="text-sm mt-2">Service: ${escapeHtml(data.service_name)}</p>` : ''}
+                    </div>`;
+                unblockDiv.innerHTML = `
+                    <button onclick="unblockDomain('${domain}')" 
+                            class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded transition-colors duration-200">
+                        Unblock Domain
+                    </button>`;
+            } else {
+                resultDiv.innerHTML = `
+                    <div class="bg-green-100 border-l-4 border-green-500 text-green-700 p-4">
+                        <p class="font-bold">Domain is not blocked</p>
+                        <p class="text-sm"><strong>${escapeHtml(domain)}</strong> is allowed</p>
+                        <p class="text-xs mt-2">Status: ${escapeHtml(data.reason)}</p>
+                    </div>`;
+                unblockDiv.innerHTML = '';
+            }
+        }
+
         async function checkDomain(event) {
             event.preventDefault();
             const domain = DOMPurify.sanitize(document.getElementById('domain').value);
@@ -34,7 +54,6 @@
             const submitBtn = document.getElementById('submit-btn');
             
             try {
-                // Show loading state
                 submitBtn.disabled = true;
                 submitBtn.innerHTML = '<span class="inline-flex items-center">Checking... <svg class="animate-spin ml-2 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path></svg></span>';
                 
@@ -48,30 +67,7 @@
                 const data = await response.json();
                 
                 if (response.ok) {
-                    const isBlocked = data.reason.startsWith('Filtered');
-                    if (isBlocked) {
-                        resultDiv.innerHTML = `
-                            <div class="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-4">
-                                <p class="font-bold">Domain is blocked</p>
-                                <p class="text-sm"><strong>${escapeHtml(domain)}</strong> is blocked</p>
-                                <p class="text-sm">Reason: ${escapeHtml(data.reason)}</p>
-                                ${data.rules?.length ? `<p class="text-sm font-mono bg-red-50 p-2 mt-1 rounded">Rule: ${escapeHtml(data.rules[0].text)}</p>` : ''}
-                                ${data.service_name ? `<p class="text-sm mt-2">Service: ${escapeHtml(data.service_name)}</p>` : ''}
-                            </div>`;
-                        unblockDiv.innerHTML = `
-                            <button onclick="unblockDomain('${domain}')" 
-                                    class="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded transition-colors duration-200">
-                                Unblock Domain
-                            </button>`;
-                    } else {
-                        resultDiv.innerHTML = `
-                            <div class="bg-green-100 border-l-4 border-green-500 text-green-700 p-4">
-                                <p class="font-bold">Domain is not blocked</p>
-                                <p class="text-sm"><strong>${escapeHtml(domain)}</strong> is allowed</p>
-                                <p class="text-xs mt-2">Status: ${escapeHtml(data.reason)}</p>
-                            </div>`;
-                        unblockDiv.innerHTML = '';
-                    }
+                    renderDomainStatus(resultDiv, unblockDiv, domain, data);
                 } else {
                     let errorMsg = data.message || 'Unknown error occurred';
                     let errorType = response.status === 400 ? 'warning' : 'error';
