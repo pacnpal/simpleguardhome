@@ -14,6 +14,9 @@
 !requirements.txt
 !docker-entrypoint.sh
 !healthcheck.py
+!setup.py
+!pyproject.toml
+!MANIFEST.in
 
 # VERIFICATION: Required files that MUST exist:
 # - src/simpleguardhome/__init__.py
@@ -23,6 +26,7 @@
 # - src/simpleguardhome/templates/index.html
 # - src/simpleguardhome/favicon.ico
 # - healthcheck.py
+# - setup.py
 
 # SAFETY: Never include these files even if allowed above
 **/__pycache__/

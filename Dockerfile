@@ -13,13 +13,12 @@ RUN apt-get update && \
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy the source code
-COPY . .
+# Copy package files
+COPY setup.py pyproject.toml MANIFEST.in ./
+COPY src ./src
 
-# Clean any previous installations and install the package
-RUN pip uninstall -y simpleguardhome || true && \
-    pip install -e . && \
-    pip show simpleguardhome && \
+# Install the package
+RUN pip install -e . && \
     python3 -c "import simpleguardhome; print('Package found at:', simpleguardhome.__file__)"
 
 # Set up health check
@@ -35,6 +34,9 @@ ENV ADGUARD_HOST="http://localhost" \
 
 # Expose application port
 EXPOSE 8000
+
+# Create rules_backup directory with proper permissions
+RUN mkdir -p rules_backup && chmod 777 rules_backup
 
 # Copy and set up entrypoint
 COPY docker-entrypoint.sh /usr/local/bin/
