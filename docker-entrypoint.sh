@@ -24,9 +24,27 @@ check_package() {
     log "Python version:"
     python3 --version
     
+    # Debug: Show current directory and its contents
+    log "Current directory: $(pwd)"
+    log "Directory contents:"
+    ls -la
+    
+    # Debug: Show /app directory contents
+    log "Contents of /app directory:"
+    ls -la /app
+    
+    # Debug: Show /app/src directory contents
+    log "Contents of /app/src directory:"
+    ls -la /app/src || echo "src directory not found"
+    
     log "Verifying package files..."
     if [ ! -d "/app/src/simpleguardhome" ]; then
         log "ERROR: Package directory not found!"
+        log "Contents of parent directories:"
+        ls -la /
+        ls -la /app || echo "/app not found"
+        log "Full path check:"
+        find / -name "simpleguardhome" 2>/dev/null || echo "No simpleguardhome directory found"
         exit 1
     fi
 
