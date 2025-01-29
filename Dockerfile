@@ -24,8 +24,7 @@ RUN mkdir -p /app/src/simpleguardhome && \
     chmod -R 755 /app
 
 # Copy source code, maintaining directory structure
-COPY setup.py requirements.txt pyproject.toml /app/
-COPY src /app/src/
+COPY . /app/
 
 # Set PYTHONPATH
 ENV PYTHONPATH=/app/src
@@ -37,6 +36,9 @@ RUN pip install --no-cache-dir -r requirements.txt
 RUN set -e && \
     echo "Installing package..." && \
     pip uninstall -y simpleguardhome || true && \
+    # Verify source files exist
+    echo "Verifying source files..." && \
+    ls -la /app/src/simpleguardhome/ && \
     # Install package in editable mode with compatibility mode enabled
     pip install --use-pep517 -e . --config-settings editable_mode=compat && \
     echo "Verifying installation..." && \
@@ -50,7 +52,6 @@ RUN set -e && \
     echo "Package installation successful"
 
 # Copy and set up entrypoint script
-COPY docker-entrypoint.sh /usr/local/bin/
 RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 
 # Create rules backup directory with proper permissions
