@@ -184,7 +184,6 @@ Documentation is available at:
 - OpenAPI Schema: `http://localhost:8000/api/openapi.json` - Raw OpenAPI specification
 
 ### API Endpoints
-### API Endpoints
 
 All endpoints follow the official AdGuard Home API specification:
 
@@ -251,24 +250,23 @@ simpleguardhome/
 
 ## Error Handling
 
-The application implements comprehensive error handling for all endpoints:
+The application implements comprehensive error handling according to endpoint:
 
-- 400 Bad Request
-  - Invalid domain format
-  - Missing required parameters
-  - Invalid whitelist rule format
-- 500 Internal Server Error
-  - Failed to add domain to whitelist
-  - Other internal processing errors
-- 502 Bad Gateway
-  - AdGuard Home API errors
-  - Invalid API responses
-- 503 Service Unavailable
-  - AdGuard Home service unreachable
-  - Connection timeouts
-  - Network errors
+GET /control/filtering/check_host:
+- 400: Invalid domain format or missing name parameter
+- 503: AdGuard Home service unavailable
 
-All errors return an ErrorResponse object with a descriptive message.
+GET /control/filtering/unblock_host:
+- 400: Invalid domain format or missing name parameter
+- 500: Failed to unblock domain
+- 503: AdGuard Home service unavailable
+
+POST /control/filtering/set_rules:
+- 400: Invalid rule format or missing rules
+- 500: Failed to update rules
+- 503: AdGuard Home service unavailable
+
+All endpoints return an ErrorResponse model with a descriptive message.
 
 ## Response Models
 
