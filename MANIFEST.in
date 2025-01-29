@@ -1,0 +1,3 @@
+recursive-include src/simpleguardhome/templates *
+include src/simpleguardhome/favicon.ico
+recursive-include src/simpleguardhome *.py
