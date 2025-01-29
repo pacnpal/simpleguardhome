@@ -14,7 +14,7 @@ RUN apt-get update && \
     python3-pip \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/* \
-    && python3 -m pip install --no-cache-dir --upgrade pip setuptools wheel
+    && python3 -m pip install --no-cache-dir --upgrade "pip>=21.3" setuptools wheel
 
 # Add architecture-specific compiler flags if needed
 ENV ARCHFLAGS=""
@@ -24,7 +24,7 @@ RUN mkdir -p /app/src/simpleguardhome && \
     chmod -R 755 /app
 
 # Copy source code, maintaining directory structure
-COPY setup.py requirements.txt /app/
+COPY setup.py requirements.txt pyproject.toml /app/
 COPY src /app/src/
 
 # Set PYTHONPATH
@@ -37,10 +37,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 RUN set -e && \
     echo "Installing package..." && \
     pip uninstall -y simpleguardhome || true && \
-    # First install dependencies only
-    pip install --no-deps -v -e . && \
-    # Then install package with dependencies
-    pip install -e . && \
+    # Install package with dependencies and PEP 517 support
+    pip install --use-pep517 -e . && \
     echo "Verifying installation..." && \
     pip show simpleguardhome && \
     # List all package files
