@@ -43,7 +43,7 @@ Then visit `http://localhost:8000` to start managing your AdGuard Home filtering
 ### System Requirements
 - Python 3.9 or higher (for local installation)
 - Running AdGuard Home instance
-- AdGuard Home API credentials (if authentication is enabled)
+- AdGuard Home API credentials
 - Docker (optional, for containerized deployment)
 
 ### Python Dependencies
@@ -67,8 +67,8 @@ docker pull pacnpal/simpleguardhome:latest
 ```env
 ADGUARD_HOST=http://localhost    # AdGuard Home host URL
 ADGUARD_PORT=3000               # AdGuard Home API port
-ADGUARD_USERNAME=admin          # Optional: AdGuard Home username
-ADGUARD_PASSWORD=password       # Optional: AdGuard Home password
+ADGUARD_USERNAME=admin          # Required: AdGuard Home username
+ADGUARD_PASSWORD=password       # Required: AdGuard Home password
 ```
 
 3. Run the container:
@@ -134,8 +134,8 @@ cp .env.example .env
 ```env
 ADGUARD_HOST=http://localhost    # AdGuard Home host URL
 ADGUARD_PORT=3000               # AdGuard Home API port
-ADGUARD_USERNAME=admin          # Optional: AdGuard Home username
-ADGUARD_PASSWORD=password       # Optional: AdGuard Home password
+ADGUARD_USERNAME=admin          # Required: AdGuard Home username
+ADGUARD_PASSWORD=password       # Required: AdGuard Home password
 ```
 
 ## Running the Application
