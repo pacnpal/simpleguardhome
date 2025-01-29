@@ -1,0 +1,3 @@
+This directory is used for storing AdGuard rule backups.
+Each backup is stored as a JSON file with a timestamp.
+These backup files are git-ignored but the directory structure is maintained.

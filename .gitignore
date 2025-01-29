@@ -169,5 +169,5 @@ cython_debug/
 
 # PyPI configuration file
 .pypirc
-rules*.json
+rules_backup/*.json
 .DS_Store
