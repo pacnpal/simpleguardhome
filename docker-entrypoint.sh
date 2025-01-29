@@ -12,9 +12,14 @@ handle_term() {
 # Set up signal handlers
 trap handle_term SIGTERM SIGINT
 
-# Verify package can be imported
+# Print diagnostic information
 echo "Verifying package installation..."
-python3 -c "import simpleguardhome" || exit 1
+echo "Python path:"
+python3 -c "import sys; print('\n'.join(sys.path))"
+echo "Installed packages:"
+pip list
+echo "Attempting to import simpleguardhome..."
+python3 -c "import simpleguardhome; print('Successfully imported simpleguardhome')" || exit 1
 
 # Start the application
 echo "Starting SimpleGuardHome server..."

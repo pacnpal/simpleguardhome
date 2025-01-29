@@ -31,6 +31,8 @@ COPY . .
 RUN pip uninstall -y simpleguardhome || true && \
     pip install -e . && \
     pip show simpleguardhome && \
+    pip list && \
+    python3 -c "import sys; print('Python path:', sys.path)" && \
     python3 -c "import simpleguardhome; print('Package found at:', simpleguardhome.__file__)"
 
 # Copy and set up entrypoint script
