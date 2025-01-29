@@ -22,21 +22,11 @@ dependencies = [
 ]
 
 [tool.setuptools]
-# Using explicit package configuration
 package-dir = {"" = "src"}
 packages = ["simpleguardhome"]
 
-# Include all package data
 [tool.setuptools.package-data]
-"*" = ["*.ico", "templates/*.html"]
-
-# Explicitly include the package data
-[options.package_data]
 simpleguardhome = [
-    "templates/*",
+    "templates/*.html",
     "favicon.ico"
 ]
-
-# Make sure data files are included
-[options]
-include_package_data = true

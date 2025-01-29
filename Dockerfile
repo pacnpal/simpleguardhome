@@ -20,46 +20,38 @@ RUN apt-get update && \
 # Add architecture-specific compiler flags if needed
 ENV ARCHFLAGS=""
 
-# Create necessary directories and set permissions
-RUN mkdir -p /app/src/simpleguardhome && \
-    chmod -R 755 /app
+# Copy requirements first to leverage Docker cache
+COPY requirements.txt /app/
+RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy source code, maintaining directory structure
+# Copy the entire project
 COPY . /app/
 
-# Debug: Show the copied files and set execute permission for entrypoint script
-RUN echo "Project structure:" && \
+# Debug: Show project structure after copy
+RUN echo "Project structure after copy:" && \
     tree /app && \
-    echo "Package directory contents:" && \
-    ls -la /app/src/simpleguardhome/ && \
+    echo "Verifying source directory:" && \
+    if [ ! -d "/app/src/simpleguardhome" ]; then \
+        echo "ERROR: Source directory missing!" && \
+        exit 1; \
+    fi && \
+    echo "Source directory contents:" && \
+    ls -la /app/src/simpleguardhome/
+
+# Set permissions
+RUN chmod -R 755 /app && \
     chmod +x /app/docker-entrypoint.sh && \
     cp /app/docker-entrypoint.sh /usr/local/bin/
 
 # Set PYTHONPATH
 ENV PYTHONPATH=/app/src
 
-# Install Python requirements and verify the package
-RUN pip install --no-cache-dir -r requirements.txt && \
-    set -e && \
+# Install Python package in development mode
+RUN set -e && \
     echo "Installing package..." && \
-    pip uninstall -y simpleguardhome || true && \
-    # Debug: Show package files
-    echo "Python path:" && \
-    python3 -c "import sys; print('\n'.join(sys.path))" && \
-    echo "Source directory contents:" && \
-    ls -R /app/src && \
-    # Install package in editable mode with compatibility mode enabled
-    pip install --use-pep517 -e . --config-settings editable_mode=compat && \
-    echo "Verifying installation..." && \
-    pip show simpleguardhome && \
-    # List all package files
-    echo "Package contents:" && \
-    find /app/src/simpleguardhome -type f -ls && \
-    # Verify package can be imported
-    echo "Testing import..." && \
-    python3 -c "import simpleguardhome; print(f'Package found at: {simpleguardhome.__file__}')" && \
-    # Verify app can be imported
-    echo "Testing app import..." && \
+    pip install -e . && \
+    echo "Verifying package installation..." && \
+    python3 -c "import simpleguardhome; print('Package location:', simpleguardhome.__file__)" && \
     python3 -c "from simpleguardhome.main import app; print('App imported successfully')" && \
     echo "Package installation successful" && \
     # Create rules backup directory with proper permissions
