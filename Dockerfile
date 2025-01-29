@@ -26,6 +26,10 @@ RUN mkdir -p /app/src/simpleguardhome && \
 # Copy source code, maintaining directory structure
 COPY . /app/
 
+# Set execute permission for entrypoint script
+RUN chmod +x /app/docker-entrypoint.sh && \
+    cp /app/docker-entrypoint.sh /usr/local/bin/
+
 # Set PYTHONPATH
 ENV PYTHONPATH=/app/src
 
@@ -50,9 +54,6 @@ RUN set -e && \
     echo "Testing import..." && \
     python3 -c "import simpleguardhome; from simpleguardhome.main import app; print(f'Package found at: {simpleguardhome.__file__}')" && \
     echo "Package installation successful"
-
-# Copy and set up entrypoint script
-RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 
 # Create rules backup directory with proper permissions
 RUN mkdir -p /app/rules_backup && \
