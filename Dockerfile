@@ -18,7 +18,7 @@ COPY setup.py pyproject.toml MANIFEST.in ./
 COPY src ./src
 
 # Install the package
-RUN pip install -e /app && \
+RUN pip install -e . && \
     python3 -c "import simpleguardhome; print('Package found at:', simpleguardhome.__file__)"
 
 # Set up health check
@@ -26,7 +26,7 @@ COPY healthcheck.py /usr/local/bin/
 RUN chmod +x /usr/local/bin/healthcheck.py
 
 HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
-    CMD python3 /usr/local/bin/healthcheck.py
+    CMD ["python3", "/usr/local/bin/healthcheck.py"]
 
 # Environment setup
 ENV ADGUARD_HOST="http://localhost" \
