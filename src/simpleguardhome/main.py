@@ -52,7 +52,8 @@ templates = Jinja2Templates(directory=str(templates_path))
 app.mount("/static", StaticFiles(directory=str(Path(__file__).parent)), name="static")
 
 # Mount favicon.ico at root
-app.mount("/favicon.ico", StaticFiles(directory=str(Path(__file__).parent), files={"favicon.ico": "favicon.ico"}), name="favicon")
+static_files_path = Path(__file__).parent
+app.mount("/favicon.ico", StaticFiles(directory=str(static_files_path)), name="favicon")
 
 # Response models matching AdGuard spec
 class ErrorResponse(BaseModel):
