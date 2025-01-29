@@ -18,7 +18,7 @@ COPY setup.py pyproject.toml MANIFEST.in ./
 COPY src ./src
 
 # Install the package
-RUN pip install -e . && \
+RUN pip install -e /app && \
     python3 -c "import simpleguardhome; print('Package found at:', simpleguardhome.__file__)"
 
 # Set up health check
