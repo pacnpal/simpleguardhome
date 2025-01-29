@@ -51,64 +51,12 @@ RUN echo "Creating verified backups..." && \
         echo "✓ Created and verified $backup"; \
     done
 
-# STEP 4: Create monitoring scripts
+# STEP 4: Create monitoring script
 RUN echo 'import os,sys,psutil,time,json,logging\nwhile True:\n    stats={"cpu":psutil.cpu_percent(),"mem":psutil.virtual_memory().percent,"disk":psutil.disk_usage("/").percent}\n    for backup in ["main","backup1","backup2","backup3","backup4","rescue","emergency","last_resort","ultrabackup"]:\n        if not os.path.exists(f"/app/{backup}/src/simpleguardhome"): stats[f"{backup}_missing"]=True\n    with open("/app/monitor/stats.json","w") as f: json.dump(stats,f)\n    time.sleep(5)' > /app/monitor/monitor.py && \
     chmod +x /app/monitor/monitor.py
 
-# STEP 5: Create health check that verifies EVERYTHING
-COPY - <<'EOF' /usr/local/bin/healthcheck.py
-import os, sys, psutil, requests, hashlib, json
-from pathlib import Path
-
-def verify_all_backups():
-    errors = []
-    backups = ['main', 'backup1', 'backup2', 'backup3', 'backup4', 
-               'rescue', 'emergency', 'last_resort', 'ultrabackup']
-    
-    # Check each backup
-    for backup in backups:
-        base = f'/app/{backup}/src/simpleguardhome'
-        if not os.path.exists(base):
-            errors.append(f'{backup} backup missing!')
-            continue
-            
-        # Verify checksums
-        with open(f'/app/{backup}/checksums.md5') as f:
-            for line in f:
-                checksum, file = line.strip().split()
-                file_path = os.path.join('/app', file)
-                if os.path.exists(file_path):
-                    with open(file_path, 'rb') as f:
-                        if hashlib.md5(f.read()).hexdigest() != checksum:
-                            errors.append(f'Checksum mismatch in {backup}: {file}')
-                else:
-                    errors.append(f'File missing in {backup}: {file}')
-    
-    # Check monitoring
-    try:
-        with open('/app/monitor/stats.json') as f:
-            stats = json.load(f)
-            if stats['cpu'] > 90 or stats['mem'] > 90 or stats['disk'] > 90:
-                errors.append(f'Resource usage too high: CPU={stats["cpu"]}%, MEM={stats["mem"]}%, DISK={stats["disk"]}%')
-    except:
-        errors.append('Monitoring system failure!')
-    
-    return errors
-
-def main():
-    errors = verify_all_backups()
-    if errors:
-        print('❌ HEALTH CHECK FAILED:')
-        for error in errors:
-            print(f'  • {error}')
-        sys.exit(1)
-    print('✅ ALL SYSTEMS OPERATIONAL')
-    sys.exit(0)
-
-if __name__ == '__main__':
-    main()
-EOF
-
+# STEP 5: Set up health check script
+COPY healthcheck.py /usr/local/bin/
 RUN chmod +x /usr/local/bin/healthcheck.py
 
 # Add health check
@@ -149,6 +97,10 @@ RUN echo "=== 🚀 ULTRA FINAL VERIFICATION ===" && \
         cd "/app/$backup" && md5sum -c checksums.md5; \
     done && \
     echo "✅ EVERYTHING IS VERIFIED, BACKED UP, AND MONITORED!"
+
+# Copy entrypoint script
+COPY docker-entrypoint.sh /usr/local/bin/
+RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 
 # Start monitoring and application
 ENTRYPOINT ["docker-entrypoint.sh"]

@@ -13,6 +13,7 @@
 # Critical system files (REQUIRED)
 !requirements.txt
 !docker-entrypoint.sh
+!healthcheck.py
 
 # VERIFICATION: Required files that MUST exist:
 # - src/simpleguardhome/__init__.py
@@ -21,6 +22,7 @@
 # - src/simpleguardhome/config.py
 # - src/simpleguardhome/templates/index.html
 # - src/simpleguardhome/favicon.ico
+# - healthcheck.py
 
 # SAFETY: Never include these files even if allowed above
 **/__pycache__/
