@@ -4,7 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SimpleGuardHome</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/@tailwindcss/browser@4" integrity="sha384-fsXZ0Oru5QjGkveFx8DdmBAyKdwnJ7TnbRzDN5LROCKt8PAN8h7y7oqCwtk9cN68" crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/2.3.4/purify.min.js" integrity="sha384-KGmzmwrs7oAU2sG5qfETslFsscVcCaxQrX2d7PW7I9bTrsuTD/eSMFr9jaMS9i+b" crossorigin="anonymous"></script>
     <script>
         function escapeHtml(unsafe) {
             return unsafe
@@ -14,10 +15,20 @@
                 .replace(/"/g, "&quot;")
                 .replace(/'/g, "&#039;");
         }
-
+            return unsafe.replace(/[&<"']/g, function (m) {
+                switch (m) {
+                    case '&': return '&amp;';
+                    case '<': return '&lt;';
+                    case '>': return '&gt;';
+                    case '"': return '&quot;';
+                    case "'": return '&#039;';
+                    default: return m;
+                }
+            });
+        }
         async function checkDomain(event) {
             event.preventDefault();
-            const domain = document.getElementById('domain').value;
+            const domain = DOMPurify.sanitize(document.getElementById('domain').value);
             const resultDiv = document.getElementById('result');
             const unblockDiv = document.getElementById('unblock-action');
             const submitBtn = document.getElementById('submit-btn');
@@ -69,7 +80,7 @@
                     resultDiv.innerHTML = `
                         <div class="bg-${bgColor}-100 border-l-4 border-${bgColor}-500 text-${bgColor}-700 p-4">
                             <p class="font-bold">Error checking domain</p>
-                            <p class="text-sm">${errorMsg}</p>
+                            <p class="text-sm">${escapeHtml(errorMsg)}</p>
                         </div>`;
                     unblockDiv.innerHTML = '';
                 }
