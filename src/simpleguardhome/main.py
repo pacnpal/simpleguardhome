@@ -59,10 +59,19 @@ templates = Jinja2Templates(directory=str(templates_path))
 # Mount static files from package directory
 app.mount("/static", StaticFiles(directory=str(Path(__file__).parent)), name="static")
 
-# Mount favicon.ico at root
-static_files_path = Path(__file__).parent
-app.mount("/favicon.ico",
-          StaticFiles(directory=str(static_files_path)), name="favicon")
+# Serve favicon.ico directly
+from fastapi.responses import FileResponse
+favicon_path = Path(__file__).parent / "favicon.ico"
+
+@app.get("/favicon.ico")
+async def favicon():
+    """Serve favicon."""
+    return FileResponse(favicon_path)
+
+@app.get("/health")
+async def health_check():
+    """Health check endpoint."""
+    return {"status": "healthy"}
 
 # Response models matching AdGuard spec
 
