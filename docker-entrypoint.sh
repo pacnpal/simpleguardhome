@@ -12,38 +12,57 @@ handle_term() {
 # Set up signal handlers
 trap handle_term SIGTERM SIGINT
 
-# Verify package files exist
-echo "Verifying package files..."
-if [ ! -d "/app/src/simpleguardhome" ]; then
-    echo "ERROR: Package directory not found!"
-    exit 1
-fi
+# Function to log with timestamp
+log() {
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] $1"
+}
 
-if [ ! -f "/app/src/simpleguardhome/__init__.py" ]; then
-    echo "ERROR: Package __init__.py not found!"
-    exit 1
-fi
+# Function to check package installation
+check_package() {
+    log "System information:"
+    uname -a
+    log "Python version:"
+    python3 --version
+    
+    log "Verifying package files..."
+    if [ ! -d "/app/src/simpleguardhome" ]; then
+        log "ERROR: Package directory not found!"
+        exit 1
+    fi
 
-if [ ! -f "/app/src/simpleguardhome/main.py" ]; then
-    echo "ERROR: Package main.py not found!"
-    exit 1
-fi
+    log "Checking critical files..."
+    for file in "__init__.py" "main.py" "adguard.py" "config.py"; do
+        if [ ! -f "/app/src/simpleguardhome/$file" ]; then
+            log "ERROR: Required file $file not found!"
+            exit 1
+        fi
+    done
 
-# Print environment information
-echo "Environment:"
-echo "PYTHONPATH=$PYTHONPATH"
-echo "Current directory: $(pwd)"
-echo "Package contents:"
-ls -R /app/src/simpleguardhome/
+    log "Environment variables:"
+    echo "PYTHONPATH=$PYTHONPATH"
+    echo "PWD=$(pwd)"
+    
+    log "Package contents:"
+    find /app/src/simpleguardhome -type f
 
-# Verify package can be imported
-echo "Verifying package import..."
-if ! python3 -c "import simpleguardhome; from simpleguardhome.main import app; print('Package imported successfully')"; then
-    echo "ERROR: Failed to import package!"
-    exit 1
-fi
+    log "Testing package import..."
+    PYTHONPATH=/app/src python3 -c "
+import sys
+import simpleguardhome
+from simpleguardhome.main import app
+print('Python path:', sys.path)
+print('Package location:', simpleguardhome.__file__)
+print('Package imported successfully')
+" || {
+        log "ERROR: Package import failed!"
+        exit 1
+    }
+}
 
-echo "All checks passed. Starting server..."
+# Run checks
+check_package
+
+log "All checks passed. Starting server..."
 
 # Start the application
 echo "Starting SimpleGuardHome server..."

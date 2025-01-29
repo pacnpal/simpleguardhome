@@ -1,24 +1,28 @@
 # Use official Python base image
-FROM python:3.11-slim
+FROM python:3.11-slim-bullseye
 
 # Set and create working directory
 WORKDIR /app
 RUN mkdir -p /app/src/simpleguardhome && \
     chmod -R 755 /app
-
-# Install system dependencies
+# Install system dependencies with architecture-specific handling
 RUN apt-get update && \
-    apt-get install -y --no-install-recommends gcc python3-venv && \
-    apt-get clean && \
-    rm -rf /var/lib/apt/lists/*
+    DEBIAN_FRONTEND=noninteractive apt-get install -y \
+    --no-install-recommends \
+    gcc \
+    libc6-dev \
+    python3-dev \
+    python3-pip \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/* \
+    && python3 -m pip install --no-cache-dir --upgrade pip setuptools wheel
 
-# Create and activate virtual environment
-ENV VIRTUAL_ENV=/opt/venv
-RUN python -m venv $VIRTUAL_ENV
-ENV PATH="$VIRTUAL_ENV/bin:$PATH"
+# Add architecture-specific compiler flags if needed
+ENV ARCHFLAGS=""
+    && python3 -m pip install --no-cache-dir --upgrade pip setuptools wheel
 
-# Upgrade pip and essential tools
-RUN pip install --no-cache-dir --upgrade pip setuptools wheel
+# Ensure pip is up to date
+RUN python3 -m pip install --no-cache-dir --upgrade pip setuptools wheel
 
 # Create necessary directories
 RUN mkdir -p /app/src
@@ -33,20 +37,21 @@ ENV PYTHONPATH=/app/src
 # Verify directory structure
 RUN ls -R /app
 
-# Install requirements
+# Set up working directory and install requirements
 WORKDIR /app
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Install the package in development mode with verbose output
+# Install the package with additional error handling
 RUN echo "Installing package..." && \
     pip uninstall -y simpleguardhome || true && \
+    pip install --no-deps -v -e . && \
     pip install -e . && \
-    echo "Verifying package files..." && \
-    ls -R /app/src/simpleguardhome/ && \
-    echo "Checking package installation..." && \
+    echo "Installation complete, verifying..." && \
     pip show simpleguardhome && \
-    echo "Verifying import..." && \
-    python3 -c "import simpleguardhome; from simpleguardhome.main import app; print('Package imported successfully')"
+    echo "Package files:" && \
+    find /app/src/simpleguardhome -type f && \
+    echo "Testing import..." && \
+    PYTHONPATH=/app/src python3 -c "import simpleguardhome; from simpleguardhome.main import app; print('Package successfully imported')"
 
 # Copy and set up entrypoint script
 COPY docker-entrypoint.sh /usr/local/bin/
