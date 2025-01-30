@@ -10,7 +10,7 @@
   <a href="#requirements"><img src="https://img.shields.io/badge/python-3.7+-blue.svg" alt="Python 3.7+"></a>
 </p>
 
-A modern web application for checking and adding domains to custom filtering rules in AdGuard Home. Built with FastAPI and modern JavaScript, following the official AdGuard Home OpenAPI specification.
+A modern web application for checking and adding domains to custom filtering rules in AdGuard Home. Built with FastAPI and modern JavaScript, following the official AdGuard Home OpenAPI specification. Meant as a simple AdGuard Home web interface for users to check if a domain is blocked, and then add it.
 
 ## Quick Start
 
