@@ -8,6 +8,9 @@
   <a href="https://github.com/pacnpal/simpleguardhome/releases"><img src="https://img.shields.io/badge/version-0.1.0-blue.svg" alt="Version 0.1.0"></a>
   <a href="LICENSE"><img src="https://img.shields.io/badge/license-MIT-green.svg" alt="MIT License"></a>
   <a href="#requirements"><img src="https://img.shields.io/badge/python-3.7+-blue.svg" alt="Python 3.7+"></a>
+  <a href="https://github.com/pacnpal/simpleguardhome/actions/workflows/docker-build.yml"><img src="https://github.com/pacnpal/simpleguardhome/actions/workflows/docker-build.yml/badge.svg" alt="Docker Build Status"></a>
+  <a href="https://hub.docker.com/r/pacnpal/simpleguardhome"><img src="https://img.shields.io/docker/pulls/pacnpal/simpleguardhome" alt="Docker Pulls"></a>
+  <a href="https://hub.docker.com/r/pacnpal/simpleguardhome"><img src="https://img.shields.io/docker/image-size/pacnpal/simpleguardhome/latest" alt="Docker Image Size"></a>
 </p>
 
 A modern web application for checking and adding domains to custom filtering rules in AdGuard Home. Built with FastAPI and modern JavaScript, following the official AdGuard Home OpenAPI specification. Meant as a simple AdGuard Home web interface for users to check if a domain is blocked, and then add it.
